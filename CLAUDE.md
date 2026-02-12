@@ -73,6 +73,7 @@ SnapAgent/
 │   │   │   ├── user_service.py
 │   │   │   ├── agent_service.py
 │   │   │   ├── template_service.py
+│   │   │   ├── template_seed.py       # 서버 시작 시 시스템 템플릿 5종 자동 시드
 │   │   │   ├── file_service.py
 │   │   │   ├── chat_service.py
 │   │   │   ├── usage_service.py
@@ -137,7 +138,7 @@ SnapAgent/
 │   │   │   ├── ui/                    # shadcn/ui 컴포넌트
 │   │   │   ├── layout/
 │   │   │   │   ├── MainLayout.tsx     # 메인 레이아웃
-│   │   │   │   ├── Header.tsx         # 상단 (로고 + 우측 마이페이지 메뉴)
+│   │   │   │   ├── Header.tsx         # 상단 (로고 + 우측 마이페이지/로그아웃 버튼)
 │   │   │   │   └── Sidebar.tsx        # 좌측 네비게이션
 │   │   │   ├── auth/
 │   │   │   │   └── ProtectedRoute.tsx
@@ -254,6 +255,20 @@ class AuditMixin:
 - IVFFlat 인덱스 (코사인 유사도)
 - Agent별 동적 파티션 생성
 
+### 7. 템플릿 정책
+- **관리자 전용**: 템플릿 생성/수정/삭제는 관리자(AdminUser)만 가능, 사용자는 조회만 가능
+- **시스템 템플릿 자동 시드**: 서버 기동 시 `template_seed.py`에서 5종 시스템 템플릿 자동 등록 (멱등성 보장)
+  - RAG 문서 검색 Agent (`rag`)
+  - 웹 검색 Agent (`web_search`)
+  - 하이브리드 Agent (`hybrid`)
+  - 커스텀 API Agent (`custom`)
+  - 범용 대화 Agent (`general`)
+- **Lifespan**: `main.py`의 `lifespan` 컨텍스트 매니저에서 시드 실행, 실패해도 서버 정상 기동
+- **프론트엔드**: 사용자 화면은 읽기 전용 (생성/삭제 버튼 없음), 템플릿 선택 → Agent 생성 위자드로 이동
+
+### 8. Header UI
+- 우측 상단: 이메일 표시 + 마이페이지 버튼 + 로그아웃 버튼 (드롭다운 아닌 직접 노출)
+
 ---
 
 ## 데이터베이스 스키마
@@ -289,7 +304,7 @@ class AuditMixin:
 | description | TEXT | 설명 |
 | tool_config | JSONB | 기본 Tool 구성 |
 | system_prompt_template | TEXT | 시스템 프롬프트 템플릿 |
-| category | VARCHAR | 'rag' / 'web_search' / 'hybrid' / 'custom' |
+| category | VARCHAR | 'rag' / 'web_search' / 'hybrid' / 'custom' / 'general' |
 | is_system | BOOLEAN | 시스템 기본 제공 여부 |
 | + AuditMixin |
 
@@ -431,13 +446,13 @@ POST   /api/v1/agents/{id}/process    # RAG 처리 시작 (파싱→청킹→임
 GET    /api/v1/agents/{id}/status     # RAG 처리 상태
 ```
 
-### 템플릿 (Templates)
+### 템플릿 (Templates) - GET: 사용자, POST/PUT/DELETE: 관리자 전용
 ```
-POST   /api/v1/templates              # 템플릿 생성
-GET    /api/v1/templates              # 템플릿 목록 (시스템 + 사용자)
+POST   /api/v1/templates              # 템플릿 생성 (AdminUser)
+GET    /api/v1/templates              # 템플릿 목록 (시스템 템플릿)
 GET    /api/v1/templates/{id}         # 템플릿 상세
-PUT    /api/v1/templates/{id}         # 템플릿 수정
-DELETE /api/v1/templates/{id}         # 템플릿 삭제
+PUT    /api/v1/templates/{id}         # 템플릿 수정 (AdminUser)
+DELETE /api/v1/templates/{id}         # 템플릿 삭제 (AdminUser)
 ```
 
 ### 파일 (Files)
