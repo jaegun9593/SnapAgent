@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     environment: str = "dev"
 
     # Database (snapdb - includes vector embeddings in snap_vec_ebd table)
-    database_url: str = "postgresql+asyncpg://snapuser:snappassword@localhost:5432/snapdb"
+    database_url: str = "postgresql+asyncpg://snapuser:snappassword@localhost:5433/snapagentdb"
 
     # JWT
     secret_key: str = "dev-secret-key-change-in-production"
@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     allowed_extensions: List[str] = [".pdf", ".txt", ".md", ".csv", ".docx", ".xls", ".xlsx"]
 
     # CORS
-    cors_origins: str = "http://localhost:3000,http://localhost:5173,http://localhost:5174"
+    cors_origins: str = "http://localhost:3001,http://localhost:5174,http://localhost:5175"
 
     @field_validator("cors_origins")
     @classmethod
@@ -44,7 +44,7 @@ class Settings(BaseSettings):
 
     # Server
     backend_host: str = "0.0.0.0"
-    backend_port: int = 8000
+    backend_port: int = 8001
 
     # Logging
     log_level: str = "DEBUG"

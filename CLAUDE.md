@@ -199,8 +199,12 @@ SnapAgent/
 │   ├── eslint.config.js
 │   └── components.json               # shadcn/ui 설정
 │
+├── docker-compose.local.yml           # 로컬환경 (DB만 Docker)
 ├── docker-compose.dev.yml             # 개발환경 (db + backend + frontend)
 ├── docker-compose.prd.yml             # 운영환경
+├── scripts/
+│   ├── local-start.sh                 # 로컬 개발 시작 (DB Docker + 호스트 backend/frontend)
+│   └── local-stop.sh                  # 로컬 개발 중지
 ├── .env.example
 ├── .gitignore
 ├── CLAUDE.md                          # 이 파일
@@ -565,20 +569,41 @@ Agent 추론/테스트 시 Tool 사용 결과를 **Claude 스타일의 접이식
 
 ## Docker 구성
 
+### 포트 매핑 (SnapRAG와 충돌 방지)
+| 서비스 | SnapRAG | SnapAgent | SnapAgentAdmin |
+|--------|---------|-----------|----------------|
+| DB | 5432 | **5433** | (공유) |
+| Backend | 8000 | **8001** | (공유) |
+| Frontend (dev) | 5173 | **5174** | **5175** |
+| Frontend (prd) | 3000 | **3001** | **3002** |
+
+### 로컬환경 (`docker-compose.local.yml`)
+```bash
+# DB만 Docker, backend/frontend는 호스트에서 직접 실행
+docker-compose -f docker-compose.local.yml up -d     # DB 시작
+cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+cd frontend && npm run dev
+
+# 또는 원클릭 스크립트
+./scripts/local-start.sh    # 전체 시작
+./scripts/local-stop.sh     # 전체 중지
+```
+
 ### 개발환경 (`docker-compose.dev.yml`)
 ```yaml
+# 모든 서비스 Docker
 services:
-  db:        # pgvector/pgvector:pg15, port 5432
-  backend:   # FastAPI + uvicorn --reload, port 8000
-  frontend:  # Vite dev server, port 5173
+  db:        # pgvector/pgvector:pg15, port 5433:5432
+  backend:   # FastAPI + uvicorn --reload, port 8001:8000
+  frontend:  # Vite dev server, port 5174
 ```
 
 ### 운영환경 (`docker-compose.prd.yml`)
 ```yaml
 services:
-  db:        # pgvector/pgvector:pg15
-  backend:   # Gunicorn + UvicornWorker (4 workers)
-  frontend:  # Nginx (정적 파일 서빙)
+  db:        # pgvector/pgvector:pg15, port 5433:5432
+  backend:   # Gunicorn + UvicornWorker, port 8001:8000
+  frontend:  # Nginx, port 3001:80
 ```
 
 > **관리자 패널**: SnapAgentAdmin 별도 repo에서 독립 docker-compose로 운영
@@ -607,10 +632,10 @@ ENCRYPTION_KEY=<Fernet 32-byte base64 key>
 OPENROUTER_API_KEY=your-openrouter-api-key
 
 # CORS
-CORS_ORIGINS=http://localhost:3000,http://localhost:5173
+CORS_ORIGINS=http://localhost:3001,http://localhost:5174
 
 # Frontend
-VITE_API_BASE_URL=http://localhost:8000/api/v1
+VITE_API_BASE_URL=http://localhost:8001/api/v1
 VITE_ENVIRONMENT=development
 
 # Ports

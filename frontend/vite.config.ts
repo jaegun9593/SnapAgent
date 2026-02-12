@@ -2,6 +2,8 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 
+const isDocker = process.env.DOCKER === 'true'
+
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
@@ -11,16 +13,18 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173,
+    port: 5174,
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'http://localhost:8001',
         changeOrigin: true,
       },
     },
-    watch: {
-      usePolling: true,
-      interval: 1000,
-    },
+    ...(isDocker && {
+      watch: {
+        usePolling: true,
+        interval: 1000,
+      },
+    }),
   },
 })

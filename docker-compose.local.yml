@@ -1,0 +1,29 @@
+# SnapAgent - Local Development
+# DB만 Docker로 실행, backend/frontend는 호스트에서 직접 실행
+#
+# 사용법:
+#   docker-compose -f docker-compose.local.yml up -d
+#   cd backend && uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+#   cd frontend && npm run dev
+
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: snapagent-db-local
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-snapuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-snappassword}
+      POSTGRES_DB: ${POSTGRES_DB:-snapagentdb}
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data_local:/var/lib/postgresql/data
+      - ./backend/sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-snapuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data_local:

@@ -15,7 +15,7 @@ pgvector==0.2.4
 
 # Authentication & Security
 python-jose[cryptography]==3.3.0
-passlib[bcrypt]==1.7.4
+bcrypt==4.1.2
 python-dotenv==1.0.0
 pydantic==2.10.0
 pydantic-settings==2.7.0
@@ -27,7 +27,7 @@ langchain-openai==0.2.0
 langchain-google-genai==2.0.0
 langchain-anthropic==0.3.0
 langchain-community==0.3.0
-langgraph==0.2.0
+langgraph==0.2.60
 openai==1.50.0
 tiktoken==0.7.0
 
