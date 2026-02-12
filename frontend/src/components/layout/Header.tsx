@@ -14,8 +14,8 @@ export function Header() {
       <div className="flex items-center space-x-3">
         <span className="text-sm text-muted-foreground">{user?.email}</span>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/mypage">
-            <User className="mr-1.5 h-4 w-4" />
+          <Link to="/mypage" className="inline-flex items-center">
+            <User className="mr-1.5 h-4 w-4 shrink-0" />
             마이페이지
           </Link>
         </Button>
