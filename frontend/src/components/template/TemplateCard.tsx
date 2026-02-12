@@ -1,4 +1,4 @@
-import { LayoutTemplate, Trash2, Clock } from 'lucide-react';
+import { LayoutTemplate, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,11 +14,9 @@ import type { Template } from '@/types';
 
 interface TemplateCardProps {
   template: Template;
-  onDelete: () => void;
-  isDeleting: boolean;
 }
 
-export function TemplateCard({ template, onDelete, isDeleting }: TemplateCardProps) {
+export function TemplateCard({ template }: TemplateCardProps) {
   const navigate = useNavigate();
 
   const formatDate = (dateString: string) => {
@@ -64,9 +62,9 @@ export function TemplateCard({ template, onDelete, isDeleting }: TemplateCardPro
           <span>{formatDate(template.updated_at)}</span>
         </div>
       </CardContent>
-      <CardFooter className="gap-2">
+      <CardFooter>
         <Button
-          className="flex-1"
+          className="w-full"
           variant="outline"
           onClick={() =>
             navigate('/agents/create', {
@@ -76,16 +74,6 @@ export function TemplateCard({ template, onDelete, isDeleting }: TemplateCardPro
         >
           이 템플릿으로 Agent 생성
         </Button>
-        {!template.is_system && (
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={onDelete}
-            disabled={isDeleting}
-          >
-            <Trash2 className="h-4 w-4 text-destructive" />
-          </Button>
-        )}
       </CardFooter>
     </Card>
   );

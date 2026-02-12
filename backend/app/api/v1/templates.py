@@ -1,11 +1,13 @@
 """
-Template API endpoints - Full CRUD.
+Template API endpoints.
+- GET: Any authenticated user can list/view templates.
+- POST/PUT/DELETE: Admin only.
 """
 from uuid import UUID
 
 from fastapi import APIRouter, status
 
-from app.api.deps import CurrentUser, DBSession
+from app.api.deps import AdminUser, CurrentUser, DBSession
 from app.schemas.template import (
     TemplateCreate,
     TemplateListResponse,
@@ -22,10 +24,10 @@ router = APIRouter(prefix="/templates", tags=["Templates"])
 @router.post("/", response_model=TemplateResponse, status_code=status.HTTP_201_CREATED)
 async def create_template(
     data: TemplateCreate,
-    current_user: CurrentUser,
+    current_user: AdminUser,
     db: DBSession,
 ):
-    """Create a new template."""
+    """Create a new template (admin only)."""
     service = TemplateService(db)
     template = await service.create_template(current_user, data)
     return template
@@ -58,10 +60,10 @@ async def get_template(
 async def update_template(
     template_id: UUID,
     data: TemplateUpdate,
-    current_user: CurrentUser,
+    current_user: AdminUser,
     db: DBSession,
 ):
-    """Update an existing template."""
+    """Update an existing template (admin only)."""
     service = TemplateService(db)
     template = await service.update_template(current_user, template_id, data)
     return template
@@ -70,10 +72,10 @@ async def update_template(
 @router.delete("/{template_id}", response_model=TemplateDeleteResponse)
 async def delete_template(
     template_id: UUID,
-    current_user: CurrentUser,
+    current_user: AdminUser,
     db: DBSession,
 ):
-    """Delete a template (soft delete)."""
+    """Delete a template - soft delete (admin only)."""
     service = TemplateService(db)
     await service.delete_template(current_user, template_id)
     return TemplateDeleteResponse(message="Template deleted successfully")

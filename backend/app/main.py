@@ -2,6 +2,7 @@
 FastAPI application entry point.
 """
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,6 +12,8 @@ from app.api.v1.router import api_router
 from app.api.v1.admin.router import admin_router
 from app.config import settings
 from app.core.exceptions import AppException
+from app.db.database import async_session_maker
+from app.services.template_seed import seed_system_templates
 
 # Configure logging
 logging.basicConfig(
@@ -19,6 +22,21 @@ logging.basicConfig(
     datefmt="%Y-%m-%d %H:%M:%S",
 )
 
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan: startup and shutdown events."""
+    # Startup: seed system templates
+    try:
+        async with async_session_maker() as db:
+            await seed_system_templates(db)
+    except Exception:
+        logger.exception("Failed to seed system templates (server continues)")
+    yield
+
+
 # Create FastAPI app
 app = FastAPI(
     title="SnapAgent API",
@@ -26,6 +44,7 @@ app = FastAPI(
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # Configure CORS
