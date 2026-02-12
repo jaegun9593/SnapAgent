@@ -1,0 +1,81 @@
+# SnapAgent - Development docker-compose
+# Run services: db + backend + frontend
+
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: snapagent-db-dev
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-snapuser}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-snappassword}
+      POSTGRES_DB: ${POSTGRES_DB:-snapagentdb}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/sql:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-snapuser}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - snapagent-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.dev
+    container_name: snapagent-backend-dev
+    environment:
+      ENVIRONMENT: dev
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-snapuser}:${POSTGRES_PASSWORD:-snappassword}@db:5432/${POSTGRES_DB:-snapagentdb}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB:-10}
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000,http://localhost:5173}
+      LOG_LEVEL: ${LOG_LEVEL:-DEBUG}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-}
+      PYTHONUNBUFFERED: "1"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /Users/jaekeon/project/workspace/snapagent-data/uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - snapagent-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile.dev
+    container_name: snapagent-frontend-dev
+    environment:
+      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      - VITE_ENVIRONMENT=development
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0
+    networks:
+      - snapagent-network
+
+volumes:
+  postgres_data:
+
+networks:
+  snapagent-network:
+    driver: bridge

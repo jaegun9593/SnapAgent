@@ -1,0 +1,91 @@
+# SnapAgent - Production docker-compose
+
+services:
+  db:
+    image: pgvector/pgvector:pg15
+    container_name: snapagent-db-prd
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - snapagent-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: docker/Dockerfile.prd
+    container_name: snapagent-backend-prd
+    environment:
+      ENVIRONMENT: prd
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      SECRET_KEY: ${SECRET_KEY}
+      ALGORITHM: ${ALGORITHM}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS}
+      MAX_FILE_SIZE_MB: ${MAX_FILE_SIZE_MB}
+      UPLOAD_DIR: /app/uploads
+      CORS_ORIGINS: ${CORS_ORIGINS}
+      LOG_LEVEL: ${LOG_LEVEL}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY}
+    ports:
+      - "8000:8000"
+    volumes:
+      - /Users/jaekeon/project/workspace/snapagent-data/uploads:/app/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '1'
+          memory: 1G
+    networks:
+      - snapagent-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: docker/Dockerfile.prd
+    container_name: snapagent-frontend-prd
+    environment:
+      - VITE_API_BASE_URL=/api/v1
+      - VITE_ENVIRONMENT=production
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    networks:
+      - snapagent-network
+
+volumes:
+  postgres_data:
+
+networks:
+  snapagent-network:
+    driver: bridge
