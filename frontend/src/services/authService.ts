@@ -1,5 +1,6 @@
 import api from '@/lib/axios';
 import type {
+  CaptchaResponse,
   LoginRequest,
   RegisterRequest,
   TokenResponse,
@@ -14,6 +15,11 @@ export const authService = {
 
   async register(data: RegisterRequest): Promise<TokenResponse> {
     const response = await api.post<TokenResponse>('/auth/register', data);
+    return response.data;
+  },
+
+  async getCaptcha(): Promise<CaptchaResponse> {
+    const response = await api.get<CaptchaResponse>('/auth/captcha');
     return response.data;
   },
 

@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
@@ -5,6 +6,7 @@ import type { LoginRequest, RegisterRequest } from '@/types';
 
 export function useAuth() {
   const { setUser, setTokens, logout: logoutStore } = useAuthStore();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const queryClient = useQueryClient();
 
   const loginMutation = useMutation({
@@ -34,18 +36,20 @@ export function useAuth() {
   const { data: user, isLoading } = useQuery({
     queryKey: ['user'],
     queryFn: () => authService.getMe(),
-    enabled: useAuthStore.getState().isAuthenticated,
+    enabled: isAuthenticated,
   });
 
-  // Update user in store when fetched
-  if (user && user !== useAuthStore.getState().user) {
-    setUser(user);
-  }
+  // Update user in store when fetched (via useEffect, not during render)
+  useEffect(() => {
+    if (user) {
+      setUser(user);
+    }
+  }, [user, setUser]);
 
   return {
     user,
     isLoading,
-    isAuthenticated: useAuthStore((state) => state.isAuthenticated),
+    isAuthenticated,
     login: loginMutation.mutate,
     register: registerMutation.mutate,
     logout: logoutMutation.mutate,

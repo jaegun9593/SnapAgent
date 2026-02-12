@@ -30,10 +30,16 @@ export function Sidebar() {
       </div>
       <nav className="px-4 space-y-1">
         {navItems.map((item) => {
+          // Exact match, or child route match excluding sibling nav paths
           const isActive =
             location.pathname === item.path ||
-            (item.path !== '/agents/create' &&
-              location.pathname.startsWith(item.path + '/'));
+            (location.pathname.startsWith(item.path + '/') &&
+              !navItems.some(
+                (other) =>
+                  other.path !== item.path &&
+                  other.path.startsWith(item.path + '/') &&
+                  location.pathname.startsWith(other.path)
+              ));
           return (
             <Link
               key={item.path}

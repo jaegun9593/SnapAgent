@@ -32,16 +32,16 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
         <div className="space-y-2">
           <Label htmlFor="template">템플릿 (선택사항)</Label>
           <Select
-            value={data.template_id || ''}
+            value={data.template_id || 'none'}
             onValueChange={(val) =>
-              onChange({ template_id: val || undefined })
+              onChange({ template_id: val === 'none' ? undefined : val })
             }
           >
             <SelectTrigger>
               <SelectValue placeholder="템플릿을 선택하세요" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">직접 구성</SelectItem>
+              <SelectItem value="none">직접 구성</SelectItem>
               {templates.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
                   {t.name}

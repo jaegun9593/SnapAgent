@@ -17,6 +17,13 @@ export interface RegisterRequest {
   email: string;
   password: string;
   full_name: string;
+  captcha_id: string;
+  captcha_text: string;
+}
+
+export interface CaptchaResponse {
+  captcha_id: string;
+  image_base64: string;
 }
 
 export interface TokenResponse {
