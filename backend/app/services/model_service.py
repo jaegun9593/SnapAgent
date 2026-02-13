@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.exceptions import NotFoundError
-from app.db.models import Model, User
+from app.db.models import Model, SystemSetting, User
 from app.schemas.model import (
     ModelCreate,
     ModelResponse,
@@ -30,6 +30,39 @@ class ModelService:
 
     def __init__(self, db: Optional[AsyncSession]):
         self.db = db
+
+    async def _get_setting_value(self, key: str) -> Optional[str]:
+        """Get a decrypted setting value from DB. Returns None if no db or not found."""
+        if not self.db:
+            return None
+        from app.core.encryption import decrypt_api_key
+
+        result = await self.db.execute(
+            select(SystemSetting).where(
+                SystemSetting.setting_key == key,
+                SystemSetting.use_yn == "Y",
+            )
+        )
+        row = result.scalar_one_or_none()
+        if not row:
+            return None
+        if row.is_encrypted:
+            try:
+                return decrypt_api_key(row.setting_value)
+            except ValueError:
+                logger.error("Failed to decrypt setting: %s", key)
+                return None
+        return row.setting_value
+
+    async def _get_openrouter_api_key(self) -> Optional[str]:
+        """Get OpenRouter API key: DB first, then env fallback."""
+        db_val = await self._get_setting_value("openrouter_api_key")
+        return db_val or settings.openrouter_api_key
+
+    async def _get_openrouter_base_url(self) -> str:
+        """Get OpenRouter base URL: DB first, then env fallback."""
+        db_val = await self._get_setting_value("openrouter_base_url")
+        return db_val or settings.openrouter_base_url
 
     async def create_model(self, user: User, data: ModelCreate) -> ModelResponse:
         """Register a new model."""
@@ -52,6 +85,17 @@ class ModelService:
     async def list_models(self, model_type: Optional[str] = None) -> List[ModelResponse]:
         """List all registered models."""
         query = select(Model).where(Model.use_yn == "Y")
+        if model_type:
+            query = query.where(Model.model_type == model_type)
+        query = query.order_by(Model.name)
+
+        result = await self.db.execute(query)
+        models = result.scalars().all()
+        return [ModelResponse.model_validate(m) for m in models]
+
+    async def list_active_models(self, model_type: Optional[str] = None) -> List[ModelResponse]:
+        """List only active models (for user-facing endpoints)."""
+        query = select(Model).where(Model.use_yn == "Y", Model.is_active == True)
         if model_type:
             query = query.where(Model.model_type == model_type)
         query = query.order_by(Model.name)
@@ -109,13 +153,22 @@ class ModelService:
             raise NotFoundError(f"Model not found: {model_id}")
 
         try:
+            api_key = await self._get_openrouter_api_key()
+            base_url = await self._get_openrouter_base_url()
+            if not api_key:
+                return ModelTestResponse(
+                    success=False,
+                    message="Model test failed",
+                    error="OpenRouter API key is not configured",
+                )
+
             start_time = time.time()
 
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{settings.openrouter_base_url}/chat/completions",
+                    f"{base_url}/chat/completions",
                     headers={
-                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Authorization": f"Bearer {api_key}",
                         "Content-Type": "application/json",
                     },
                     json={
@@ -143,11 +196,17 @@ class ModelService:
     async def list_openrouter_available_models(self) -> List[OpenRouterModel]:
         """Fetch available models from Open Router API."""
         try:
+            api_key = await self._get_openrouter_api_key()
+            base_url = await self._get_openrouter_base_url()
+            if not api_key:
+                logger.warning("OpenRouter API key is not configured")
+                return []
+
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.get(
-                    f"{settings.openrouter_base_url}/models",
+                    f"{base_url}/models",
                     headers={
-                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Authorization": f"Bearer {api_key}",
                     },
                 )
                 response.raise_for_status()

@@ -26,7 +26,7 @@ function App() {
           {/* Protected routes */}
           <Route element={<ProtectedRoute />}>
             <Route element={<MainLayout />}>
-              <Route path="/" element={<Navigate to="/agents" replace />} />
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/agents" element={<MyAgentsPage />} />
               <Route path="/agents/create" element={<AgentCreatePage />} />
               <Route path="/agents/:id/chat" element={<AgentChatPage />} />
@@ -38,7 +38,7 @@ function App() {
           </Route>
 
           {/* Fallback */}
-          <Route path="*" element={<Navigate to="/agents" replace />} />
+          <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </BrowserRouter>
       <Toaster />

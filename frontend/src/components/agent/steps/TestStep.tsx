@@ -1,143 +1,193 @@
-import { useState } from 'react';
-import { Send, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { Loader2 } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { useAgentTest } from '@/hooks/useAgents';
+import { ChatMessage } from '@/components/chat/ChatMessage';
+import { ChatInput } from '@/components/chat/ChatInput';
 import { ToolExecutionLayer } from '@/components/chat/ToolExecutionLayer';
-import type { ToolExecution } from '@/types';
+import type { ChatMessage as ChatMessageType, ToolExecution } from '@/types';
 
 interface TestStepProps {
   agentId: string;
 }
 
-export function TestStep({ agentId }: TestStepProps) {
-  const [query, setQuery] = useState('');
-  const [result, setResult] = useState<{
-    success: boolean;
-    response?: string;
-    tool_calls?: Record<string, unknown>[];
-    token_usage?: Record<string, number>;
-    latency_ms?: number;
-    error?: string;
-  } | null>(null);
+interface TestMessage {
+  message: ChatMessageType;
+  toolExecutions?: ToolExecution[];
+  tokenUsage?: Record<string, number>;
+  latencyMs?: number;
+  error?: string;
+}
 
+let msgIdCounter = 0;
+function nextMsgId() {
+  return `test-msg-${++msgIdCounter}`;
+}
+
+export function TestStep({ agentId }: TestStepProps) {
+  const [messages, setMessages] = useState<TestMessage[]>([]);
+  const [isPending, setIsPending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
   const testMutation = useAgentTest();
 
-  const handleTest = async () => {
-    if (!query.trim()) return;
+  // Auto-scroll to bottom
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, isPending]);
 
-    try {
-      const res = await testMutation.mutateAsync({
-        agentId,
-        data: { query },
-      });
-      setResult(res);
-    } catch (err) {
-      console.error('Test failed:', err);
-    }
-  };
+  const handleSend = useCallback(
+    async (content: string) => {
+      if (isPending) return;
 
-  // Convert tool_calls from test response to ToolExecution format
-  const toolExecutions: ToolExecution[] =
-    result?.tool_calls?.map((tc) => ({
-      tool_type: (tc.tool_type as string) || 'unknown',
-      tool_name: (tc.tool_name as string) || 'unknown',
-      input: tc.input as Record<string, unknown>,
-      output: (tc.output as string) || '',
-      status: 'completed' as const,
-    })) || [];
+      // Add user message
+      const userMsg: TestMessage = {
+        message: {
+          id: nextMsgId(),
+          session_id: 'test',
+          role: 'user',
+          content,
+          created_at: new Date().toISOString(),
+        },
+      };
+      setMessages((prev) => [...prev, userMsg]);
+      setIsPending(true);
+
+      try {
+        const res = await testMutation.mutateAsync({
+          agentId,
+          data: { query: content },
+        });
+
+        // Build tool executions from response
+        const toolExecutions: ToolExecution[] =
+          res.tool_calls?.map((tc) => ({
+            tool_type: (tc.tool as string) || (tc.tool_type as string) || 'unknown',
+            tool_name: (tc.tool as string) || (tc.tool_name as string) || 'unknown',
+            input: tc.input as Record<string, unknown>,
+            output: (tc.output as string) || '',
+            status: 'completed' as const,
+            duration_ms: tc.duration_ms as number | undefined,
+          })) || [];
+
+        // Add assistant message
+        const assistantMsg: TestMessage = {
+          message: {
+            id: nextMsgId(),
+            session_id: 'test',
+            role: 'assistant',
+            content: res.response || '',
+            token_usage: res.token_usage,
+            created_at: new Date().toISOString(),
+          },
+          toolExecutions,
+          tokenUsage: res.token_usage,
+          latencyMs: res.latency_ms,
+          error: res.error,
+        };
+        setMessages((prev) => [...prev, assistantMsg]);
+      } catch (err) {
+        // Add error message
+        const errorMsg: TestMessage = {
+          message: {
+            id: nextMsgId(),
+            session_id: 'test',
+            role: 'assistant',
+            content: '',
+            created_at: new Date().toISOString(),
+          },
+          error:
+            err instanceof Error
+              ? err.message
+              : 'Agent 테스트 중 오류가 발생했습니다.',
+        };
+        setMessages((prev) => [...prev, errorMsg]);
+      } finally {
+        setIsPending(false);
+      }
+    },
+    [agentId, isPending, testMutation]
+  );
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold mb-1">Agent 테스트</h3>
+    <div className="flex flex-col h-[480px]">
+      {/* Header */}
+      <div className="pb-3 border-b mb-1">
+        <h3 className="text-lg font-semibold">Agent 테스트</h3>
         <p className="text-sm text-muted-foreground">
-          생성된 Agent에 테스트 질문을 보내 정상 동작을 확인합니다.
+          테스트 질문을 보내 Agent가 정상 동작하는지 확인합니다.
         </p>
       </div>
 
-      {/* Test Input */}
-      <div className="flex gap-2">
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="테스트 질문을 입력하세요..."
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleTest();
-          }}
-        />
-        <Button onClick={handleTest} disabled={testMutation.isPending || !query.trim()}>
-          {testMutation.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Send className="h-4 w-4" />
+      {/* Messages area */}
+      <ScrollArea className="flex-1 py-4">
+        <div className="space-y-4 pr-4">
+          {messages.length === 0 && !isPending && (
+            <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">
+              테스트 질문을 입력해 보세요.
+            </div>
           )}
-        </Button>
-      </div>
 
-      {/* Test Result */}
-      {result && (
-        <Card>
-          <CardHeader className="pb-3">
-            <div className="flex items-center gap-2">
-              {result.success ? (
-                <CheckCircle2 className="h-5 w-5 text-green-500" />
-              ) : (
-                <AlertCircle className="h-5 w-5 text-destructive" />
+          {messages.map((entry) => (
+            <div key={entry.message.id} className="space-y-2">
+              {/* Tool execution layer (before assistant message) */}
+              {entry.message.role === 'assistant' &&
+                entry.toolExecutions &&
+                entry.toolExecutions.length > 0 && (
+                  <ToolExecutionLayer
+                    executions={entry.toolExecutions}
+                    isCollapsible={true}
+                  />
+                )}
+
+              {/* Error display */}
+              {entry.message.role === 'assistant' && entry.error && (
+                <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {entry.error}
+                </div>
               )}
-              <CardTitle className="text-base">
-                {result.success ? '테스트 성공' : '테스트 실패'}
-              </CardTitle>
-              {result.latency_ms && (
-                <Badge variant="outline" className="text-xs">
-                  {result.latency_ms}ms
-                </Badge>
+
+              {/* Message bubble (skip if empty assistant with error) */}
+              {!(
+                entry.message.role === 'assistant' &&
+                !entry.message.content &&
+                entry.error
+              ) && <ChatMessage message={entry.message} />}
+
+              {/* Latency badge */}
+              {entry.message.role === 'assistant' && entry.latencyMs && (
+                <div className="flex items-center gap-2 pl-11">
+                  <Badge variant="outline" className="text-xs">
+                    {entry.latencyMs}ms
+                  </Badge>
+                </div>
               )}
             </div>
-            {result.token_usage && (
-              <CardDescription>
-                토큰 사용: 입력 {result.token_usage.prompt_tokens || 0} / 출력{' '}
-                {result.token_usage.completion_tokens || 0}
-              </CardDescription>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Tool Executions */}
-            {toolExecutions.length > 0 && (
-              <ToolExecutionLayer
-                executions={toolExecutions}
-                isCollapsible={true}
-              />
-            )}
+          ))}
 
-            {/* Response */}
-            {result.response && (
-              <div className="rounded-md bg-muted p-4 text-sm whitespace-pre-wrap">
-                {result.response}
+          {/* Loading indicator */}
+          {isPending && (
+            <div className="flex gap-3">
+              <div className="h-8 w-8" />
+              <div className="flex items-center gap-2 text-sm text-muted-foreground italic bg-muted/30 rounded-md px-4 py-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Agent가 응답을 생성하고 있습니다...
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Error */}
-            {result.error && (
-              <div className="rounded-md bg-destructive/10 p-4 text-sm text-destructive">
-                {result.error}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+          <div ref={bottomRef} />
+        </div>
+      </ScrollArea>
 
-      <p className="text-xs text-muted-foreground">
-        테스트를 건너뛰고 바로 채팅을 시작할 수도 있습니다.
-      </p>
+      {/* Input */}
+      <div className="pt-3 border-t">
+        <ChatInput
+          onSend={handleSend}
+          disabled={isPending}
+          placeholder="테스트 질문을 입력하세요..."
+        />
+      </div>
     </div>
   );
 }

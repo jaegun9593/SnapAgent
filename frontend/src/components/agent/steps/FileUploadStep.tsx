@@ -94,10 +94,10 @@ export function FileUploadStep({ fileIds, onChange }: FileUploadStepProps) {
             <p className="text-sm text-muted-foreground">
               파일을 드래그하여 업로드하거나
             </p>
-            <label>
-              <Button variant="outline" size="sm" asChild>
-                <span>파일 선택</span>
-              </Button>
+            <label className="cursor-pointer">
+              <span className="inline-flex items-center justify-center rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent hover:text-accent-foreground">
+                파일 선택
+              </span>
               <input
                 type="file"
                 multiple

@@ -15,7 +15,7 @@ export function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/agents', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -25,7 +25,7 @@ export function LoginPage() {
       { email, password },
       {
         onSuccess: () => {
-          navigate('/agents');
+          navigate('/dashboard');
         },
       }
     );

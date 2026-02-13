@@ -1,8 +1,12 @@
 """
-Vector embedding model for snapdb.
+Vector embedding model for snapagentdb.
 
-This table stores document chunk embeddings in the main snapdb database
-with FK references to agents and files tables.
+This table stores document chunk embeddings with LIST partitioning by agent_id.
+Each Agent gets its own partition with an independent IVFFlat vector index
+for efficient per-Agent similarity search.
+
+Note: PRIMARY KEY is composite (id, agent_id) as required by PostgreSQL
+partitioned tables — the partition key must be included in the PK.
 """
 from datetime import datetime
 from typing import Optional
@@ -18,27 +22,29 @@ from app.db.base import Base
 
 class SnapVecEbd(Base):
     """
-    Vector embeddings table in snapdb.
+    Vector embeddings table (partitioned by agent_id).
 
-    This table stores document chunk embeddings for similarity search.
-    It has FK references to agents and files tables for data integrity.
+    Each row stores a single document chunk with its vector embedding.
+    The table is LIST-partitioned by agent_id so each Agent's data
+    lives in a dedicated physical partition with its own IVFFlat index.
     """
 
     __tablename__ = "snap_vec_ebd"
 
     id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
 
-    # FK references to main tables
+    # Partition key — also part of composite PK
     agent_id: Mapped[UUID] = mapped_column(
-        PG_UUID(as_uuid=True), ForeignKey("agents.id", ondelete="CASCADE"), nullable=False
+        PG_UUID(as_uuid=True), primary_key=True, nullable=False
     )
+
     file_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True), ForeignKey("files.id", ondelete="CASCADE"), nullable=False
     )
 
     # Content and embedding
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    embedding = Column(Vector(1536))  # OpenAI embedding dimension
+    embedding = Column(Vector())  # Dimension-free: supports 1536, 3072, etc.
 
     # Chunk metadata
     chunk_index: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)

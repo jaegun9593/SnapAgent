@@ -30,9 +30,9 @@ export function ModelSelectStep({
   onChange,
 }: ModelSelectStepProps) {
   const { data: modelsData, isLoading } = useQuery({
-    queryKey: ['admin-models'],
+    queryKey: ['models'],
     queryFn: async () => {
-      const response = await api.get<ModelListResponse>('/admin/models/');
+      const response = await api.get<ModelListResponse>('/models/');
       return response.data;
     },
   });

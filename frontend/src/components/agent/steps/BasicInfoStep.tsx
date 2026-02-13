@@ -19,6 +19,19 @@ interface BasicInfoStepProps {
 export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
   const { templates } = useTemplates();
 
+  const handleTemplateChange = (val: string) => {
+    if (val === 'none') {
+      onChange({ template_id: undefined });
+      return;
+    }
+
+    const selected = templates.find((t) => t.id === val);
+    onChange({
+      template_id: val,
+      system_prompt: selected?.system_prompt_template || data.system_prompt,
+    });
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -33,9 +46,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
           <Label htmlFor="template">템플릿 (선택사항)</Label>
           <Select
             value={data.template_id || 'none'}
-            onValueChange={(val) =>
-              onChange({ template_id: val === 'none' ? undefined : val })
-            }
+            onValueChange={handleTemplateChange}
           >
             <SelectTrigger>
               <SelectValue placeholder="템플릿을 선택하세요" />
@@ -50,7 +61,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
             </SelectContent>
           </Select>
           <p className="text-xs text-muted-foreground">
-            템플릿을 선택하면 도구 및 프롬프트가 자동 설정됩니다.
+            템플릿을 선택하면 시스템 프롬프트가 자동 입력됩니다.
           </p>
         </div>
 

@@ -4,12 +4,10 @@ RAG vector search tool for retrieving relevant document chunks.
 import logging
 from typing import Any, Dict, List, Optional
 
-from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.agent.tools.base import BaseTool
-from app.db.models import Agent, AgentFile, File, User
-from app.db.vector_models import SnapVecEbd
+from app.db.models import Agent, User
 
 logger = logging.getLogger(__name__)
 
@@ -58,46 +56,23 @@ class RAGTool(BaseTool):
             if not embedding:
                 return {"content": "Failed to generate embedding for query", "chunks": []}
 
-            # Vector similarity search
-            results = await self.db.execute(
-                text("""
-                    SELECT
-                        sve.id,
-                        sve.content,
-                        sve.chunk_index,
-                        sve.file_id,
-                        sve.extra,
-                        1 - (sve.embedding <=> :embedding::vector) as similarity
-                    FROM snap_vec_ebd sve
-                    WHERE sve.agent_id = :agent_id
-                      AND sve.use_yn = 'Y'
-                      AND 1 - (sve.embedding <=> :embedding::vector) >= :threshold
-                    ORDER BY similarity DESC
-                    LIMIT :top_k
-                """),
-                {
-                    "embedding": str(embedding),
-                    "agent_id": str(self.agent.id),
-                    "threshold": threshold,
-                    "top_k": top_k,
-                },
+            # Vector similarity search via VectorStore
+            from app.rag.vectorstore import VectorStore
+
+            vector_store = VectorStore(self.db)
+            results = await vector_store.similarity_search(
+                agent_id=self.agent.id,
+                query_embedding=embedding,
+                top_k=top_k,
+                similarity_threshold=threshold,
             )
 
-            rows = results.fetchall()
             chunks = []
             content_parts = []
 
-            for row in rows:
-                chunk_data = {
-                    "id": str(row.id),
-                    "content": row.content,
-                    "chunk_index": row.chunk_index,
-                    "file_id": str(row.file_id),
-                    "similarity": round(float(row.similarity), 4),
-                    "extra": row.extra,
-                }
-                chunks.append(chunk_data)
-                content_parts.append(row.content)
+            for row in results:
+                chunks.append(row)
+                content_parts.append(row["content"])
 
             content = "\n\n---\n\n".join(content_parts) if content_parts else "No relevant documents found"
 

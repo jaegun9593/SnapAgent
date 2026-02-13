@@ -13,17 +13,18 @@ export const fileService = {
   },
 
   async upload(files: File[]): Promise<FileItem[]> {
-    const formData = new FormData();
-    files.forEach((file) => {
-      formData.append('files', file);
-    });
-
-    const response = await api.post<FileItem[]>('/files/', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    return response.data;
+    const results: FileItem[] = [];
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await api.post<FileItem>('/files/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      results.push(response.data);
+    }
+    return results;
   },
 
   async delete(fileId: string): Promise<void> {

@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS agents (
     model_id UUID REFERENCES models(id) ON DELETE RESTRICT,
     embedding_model_id UUID REFERENCES models(id) ON DELETE SET NULL,
     config JSONB,
-    status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'active', 'inactive')),
+    status VARCHAR(50) DEFAULT 'draft' CHECK (status IN ('draft', 'configured', 'processing', 'ready', 'active', 'inactive', 'error')),
     created_by VARCHAR(255) REFERENCES users(email) ON DELETE SET NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
     updated_by VARCHAR(255) REFERENCES users(email) ON DELETE SET NULL,

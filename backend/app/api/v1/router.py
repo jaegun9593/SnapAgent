@@ -11,6 +11,7 @@ from app.api.v1 import (
     files,
     chat,
     dashboard,
+    models,
 )
 
 
@@ -25,3 +26,4 @@ api_router.include_router(templates.router)
 api_router.include_router(files.router)
 api_router.include_router(chat.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(models.router)

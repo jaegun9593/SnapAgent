@@ -70,6 +70,7 @@ SnapAgent/
 │   │   │   └── token_limit.py
 │   │   ├── services/                  # 비즈니스 로직
 │   │   │   ├── auth_service.py
+│   │   │   ├── captcha_service.py     # Pillow 기반 이미지 CAPTCHA 생성/검증
 │   │   │   ├── user_service.py
 │   │   │   ├── agent_service.py
 │   │   │   ├── template_service.py
@@ -115,6 +116,9 @@ SnapAgent/
 │   ├── docker/
 │   │   ├── Dockerfile.dev
 │   │   └── Dockerfile.prd
+│   ├── tests/                         # 통합 테스트 (pytest + httpx)
+│   │   ├── conftest.py                # 공통 fixture (client, auth_headers)
+│   │   └── test_api.py                # API 통합 테스트 (16개)
 │   ├── requirements.txt
 │   └── pyproject.toml
 │
@@ -268,6 +272,44 @@ class AuditMixin:
 
 ### 8. Header UI
 - 우측 상단: 이메일 표시 + 마이페이지 버튼 + 로그아웃 버튼 (드롭다운 아닌 직접 노출)
+
+### 9. CAPTCHA + KISA 비밀번호 정책
+- **회원가입 CAPTCHA**: Pillow 기반 자체 이미지 CAPTCHA (`CaptchaService`)
+  - `GET /api/v1/auth/captcha` → `captcha_id` + `image_base64` 반환
+  - `POST /api/v1/auth/register` 시 `captcha_id` + `captcha_text` 필수 검증
+  - In-memory 저장, 5분 TTL, 단일 사용(single-use)
+- **KISA 비밀번호 정책** (`RegisterRequest` Pydantic validator):
+  - 3종 이상 조합(대문자/소문자/숫자/특수문자): 최소 8자
+  - 2종 조합: 최소 10자
+  - 연속 동일문자 3회 이상 금지 (aaa, 111)
+  - 연속 순차문자 3회 이상 금지 (abc, 123)
+  - 이메일(아이디) 포함 금지
+
+### 10. 파일 업로드
+- **엔드포인트**: `POST /api/v1/files/upload` (multipart/form-data)
+- **필드명**: `file` (단일 파일 업로드)
+- **허용 확장자**: `.pdf`, `.txt`, `.md`, `.csv`, `.docx`, `.xls`, `.xlsx`
+- **최대 크기**: `MAX_FILE_SIZE_MB` 환경변수 (기본 10MB)
+- **저장 구조**: `{UPLOAD_DIR}/{user_email}/{uuid_hex}{ext}`
+
+### 11. Agent 생성 위자드
+- 5단계 위자드: 기본정보 → 파일등록 → Tool선택 → 모델선택 → 테스트
+- 프로그레스바: `grid grid-cols-5` 균등 배분
+- 템플릿 선택 시 시스템 프롬프트 자동 입력 (`system_prompt_template` → `system_prompt` 필드에 반영)
+- 템플릿 미선택 시 기본 프롬프트 비어있음 (직접 입력 가능)
+
+### 12. Docker 개발환경 (기본 구동 방식)
+- **기본 사용**: `docker-compose -f docker-compose.dev.yml up -d --build`
+- DB + Backend + Frontend 전체 Docker 컨테이너로 구동
+- 볼륨 마운트: backend/frontend 소스 → 핫 리로드 지원
+- 업로드 파일: `/Users/jaekeon/project/workspace/snapagent-data/uploads:/app/uploads`
+- 시스템 템플릿 시드: 서버 기동 시 자동 실행 (`created_by=None`으로 FK 제약 회피)
+
+### 13. 테스트
+- **프레임워크**: pytest + pytest-asyncio + httpx (AsyncClient + ASGITransport)
+- **실행**: `docker exec snapagent-backend-dev pytest tests/ -v`
+- **세션 스코프**: 전체 테스트가 하나의 event loop 공유 (`scope="session"`)
+- **CAPTCHA 우회**: `CaptchaService.verify`를 `unittest.mock.patch`로 항상 True 반환
 
 ---
 

@@ -50,9 +50,10 @@ async def list_models(
 @router.get("/openrouter/available", response_model=OpenRouterModelListResponse)
 async def list_openrouter_models(
     admin_user: AdminUser,
+    db: DBSession,
 ):
     """List available models from Open Router API."""
-    service = ModelService(None)
+    service = ModelService(db)
     models = await service.list_openrouter_available_models()
     return OpenRouterModelListResponse(models=models, total=len(models))
 

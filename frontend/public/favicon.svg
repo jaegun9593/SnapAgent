@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <!-- Background -->
+  <rect width="64" height="64" rx="14" fill="#1e40af"/>
+
+  <defs>
+    <linearGradient id="rainbowMane" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#ff69b4"/>
+      <stop offset="25%" stop-color="#87ceeb"/>
+      <stop offset="55%" stop-color="#ffd700"/>
+      <stop offset="80%" stop-color="#ff8c00"/>
+      <stop offset="100%" stop-color="#32cd32"/>
+    </linearGradient>
+    <linearGradient id="rainbowInner" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0%" stop-color="#ffb6d9"/>
+      <stop offset="25%" stop-color="#b8e4f9"/>
+      <stop offset="55%" stop-color="#fff0a0"/>
+      <stop offset="80%" stop-color="#ffc470"/>
+      <stop offset="100%" stop-color="#90ee90"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rainbow outer mane (behind head, flowing right+down) -->
+  <path d="
+    M 30 12
+    C 40 7, 52 12, 54 22
+    C 56 32, 52 42, 46 48
+    C 40 52, 36 50, 36 44
+    C 36 38, 40 32, 40 26
+    C 40 18, 36 14, 30 12
+    Z
+  " fill="url(#rainbowMane)" stroke="#db2777" stroke-width="1.5"/>
+
+  <!-- Pastel rainbow inner mane -->
+  <path d="
+    M 32 14
+    C 40 10, 48 16, 50 24
+    C 52 32, 48 42, 44 46
+    C 40 48, 38 46, 38 42
+    C 38 36, 42 30, 42 24
+    C 42 18, 38 14, 32 14
+    Z
+  " fill="url(#rainbowInner)"/>
+
+  <!-- Ear (visible between mane and head) -->
+  <ellipse cx="35" cy="16" rx="5" ry="6.5" transform="rotate(20 35 16)" fill="white" stroke="#db2777" stroke-width="1.2"/>
+  <ellipse cx="35.5" cy="16" rx="3" ry="4.5" transform="rotate(20 35 16)" fill="#f9a8d4"/>
+
+  <!-- Pink face accent (behind white face, peeks out at muzzle/chin) -->
+  <path d="
+    M 24 12
+    C 14 14, 4 24, 4 34
+    C 4 44, 10 52, 20 54
+    C 30 56, 40 48, 42 38
+    C 44 28, 40 16, 30 12
+    Z
+  " fill="#f9a8d4"/>
+
+  <!-- White face (main head) -->
+  <path d="
+    M 24 14
+    C 16 16, 8 24, 8 32
+    C 8 40, 12 46, 20 48
+    C 28 50, 36 44, 38 36
+    C 40 28, 38 18, 30 14
+    Z
+  " fill="white"/>
+
+  <!-- Golden horn (pointing up-left from forehead) -->
+  <path d="M 20 16 L 12 3 L 26 14 Z" fill="#fbbf24"/>
+  <path d="M 21 15 L 14 5 L 25 14 Z" fill="#fde68a"/>
+  <line x1="16" y1="8" x2="22" y2="13" stroke="#d97706" stroke-width="0.9"/>
+  <line x1="14.5" y1="6" x2="20" y2="10.5" stroke="#d97706" stroke-width="0.7"/>
+
+  <!-- Closed eye (cute arc with eyelash) -->
+  <path d="M 15 30 Q 20 24, 26 30" stroke="#1e1b4b" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M 26 30 C 27 28, 28 26, 27 25" stroke="#1e1b4b" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+</svg>

@@ -258,10 +258,20 @@ class AgentService:
         return await self._build_response(agent)
 
     async def delete_agent(self, user: User, agent_id: UUID) -> None:
-        """Soft delete an agent."""
+        """Soft delete an agent and drop its vector partition."""
         agent = await self._get_agent_or_404(user, agent_id)
         agent.use_yn = "N"
         agent.updated_by = user.email
+
+        # Drop the vector partition for this agent
+        try:
+            from app.rag.vectorstore import VectorStore
+
+            vector_store = VectorStore(self.db)
+            await vector_store.drop_partition(agent_id)
+        except Exception as e:
+            logger.warning(f"Failed to drop vector partition for agent {agent_id}: {e}")
+
         await self.db.commit()
 
     async def get_agent_status(self, user: User, agent_id: UUID) -> AgentStatusResponse:

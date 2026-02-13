@@ -133,7 +133,7 @@ async def seed_system_templates(db: AsyncSession) -> None:
             tool_config=tmpl_data["tool_config"],
             system_prompt_template=tmpl_data["system_prompt_template"],
             is_system=True,
-            created_by="system",
+            created_by=None,
         )
         db.add(template)
         seeded_count += 1

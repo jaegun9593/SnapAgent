@@ -109,7 +109,7 @@ export function RegisterPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/agents', { replace: true });
+      navigate('/dashboard', { replace: true });
     }
   }, [isAuthenticated, navigate]);
 
@@ -145,7 +145,7 @@ export function RegisterPage() {
       },
       {
         onSuccess: () => {
-          navigate('/agents');
+          navigate('/dashboard');
         },
       }
     );

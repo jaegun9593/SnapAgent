@@ -267,3 +267,15 @@ class TokenLimit(Base, AuditMixin):
     max_tokens: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     max_api_calls: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class SystemSetting(Base, AuditMixin):
+    """System-wide configuration stored by admin (API keys encrypted with Fernet)."""
+
+    __tablename__ = "system_settings"
+
+    id: Mapped[UUID] = mapped_column(PG_UUID(as_uuid=True), primary_key=True, default=uuid4)
+    setting_key: Mapped[str] = mapped_column(String(255), nullable=False)
+    setting_value: Mapped[str] = mapped_column(Text, nullable=False)
+    is_encrypted: Mapped[bool] = mapped_column(Boolean, default=False)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

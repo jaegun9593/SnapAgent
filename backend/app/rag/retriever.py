@@ -52,10 +52,10 @@ class Retriever:
 
         # Search vectors
         results = await self.vector_store.similarity_search(
-            embedding=embedding,
             agent_id=agent_id,
+            query_embedding=embedding,
             top_k=top_k,
-            threshold=threshold,
+            similarity_threshold=threshold,
         )
 
         return results
