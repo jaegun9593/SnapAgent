@@ -8,6 +8,7 @@ import { TestStep } from './steps/TestStep';
 import { WizardLayout } from './wizard/WizardLayout';
 import type { Step } from './wizard/StepIndicator';
 import type { AgentCreate, AgentToolConfig } from '@/types';
+import { agentService } from '@/services/agentService';
 
 interface AgentCreateWizardProps {
   onComplete: (agentId: string) => void;
@@ -34,12 +35,14 @@ export function AgentCreateWizard({ onComplete, onCancel }: AgentCreateWizardPro
   const [fileIds, setFileIds] = useState<string[]>([]);
   const [tools, setTools] = useState<AgentToolConfig[]>([]);
   const [createdAgentId, setCreatedAgentId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   const { createAgentAsync, isCreating } = useAgents();
 
   const handleNext = async () => {
     if (currentStep === 4) {
       // Create agent before test step
       try {
+        setIsProcessing(true);
         const agent = await createAgentAsync({
           name: agentData.name || 'New Agent',
           description: agentData.description,
@@ -53,12 +56,24 @@ export function AgentCreateWizard({ onComplete, onCancel }: AgentCreateWizardPro
           status: 'configured',
         });
         setCreatedAgentId(agent.id);
+
+        // RAG 파일이 있으면 자동으로 임베딩 처리 실행
+        if (fileIds.length > 0) {
+          try {
+            await agentService.process(agent.id, { force: true });
+          } catch (processErr) {
+            console.error('File processing failed:', processErr);
+          }
+        }
+
         setCompletedSteps((prev) =>
           prev.includes(currentStep) ? prev : [...prev, currentStep]
         );
         setCurrentStep(currentStep + 1);
       } catch (err) {
         console.error('Failed to create agent:', err);
+      } finally {
+        setIsProcessing(false);
       }
     } else if (currentStep < STEPS.length) {
       setCompletedSteps((prev) =>
@@ -89,8 +104,8 @@ export function AgentCreateWizard({ onComplete, onCancel }: AgentCreateWizardPro
       onNext={handleNext}
       onFinish={handleComplete}
       onCancel={onCancel}
-      isNextDisabled={isCreating}
-      isFinishing={isCreating}
+      isNextDisabled={isCreating || isProcessing}
+      isFinishing={isCreating || isProcessing}
     >
       {currentStep === 1 && (
         <BasicInfoStep

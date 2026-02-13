@@ -49,8 +49,8 @@ class ChatMessageResponse(BaseModel):
     session_id: UUID
     role: Literal["user", "assistant", "system"]
     content: str
-    tool_calls: Optional[Dict[str, Any]]
-    token_usage: Optional[Dict[str, Any]]
+    tool_calls: Optional[Any] = None
+    token_usage: Optional[Dict[str, Any]] = None
     created_at: datetime
 
     class Config:

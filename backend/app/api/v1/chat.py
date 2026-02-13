@@ -112,11 +112,12 @@ async def send_message(
             async for event_type, event_data in service.send_message_stream(
                 current_user, session_id, data
             ):
-                yield f"event: {event_type}\ndata: {json.dumps(event_data, ensure_ascii=False)}\n\n"
+                payload = {"type": event_type, **event_data}
+                yield f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
         except Exception as e:
             logger.error(f"SSE stream error: {e}")
-            error_data = {"error": str(e)}
-            yield f"event: error\ndata: {json.dumps(error_data)}\n\n"
+            error_data = {"type": "error", "error": str(e)}
+            yield f"data: {json.dumps(error_data)}\n\n"
 
     return StreamingResponse(
         event_generator(),

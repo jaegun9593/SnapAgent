@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, MessageSquare, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 import { useChatSessions, useChatMessages, useStreamChat } from '@/hooks/useChat';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
@@ -14,11 +15,13 @@ interface ChatPanelProps {
 
 export function ChatPanel({ agentId }: ChatPanelProps) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const {
     sessions,
     createSessionAsync,
+    deleteSession,
     isCreating: isCreatingSession,
   } = useChatSessions(agentId);
 
@@ -42,6 +45,14 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
     }
   }, [sessions, activeSessionId]);
 
+  // Send pending message after session is created and hook has correct sessionId
+  useEffect(() => {
+    if (activeSessionId && pendingMessage) {
+      sendMessage({ content: pendingMessage });
+      setPendingMessage(null);
+    }
+  }, [activeSessionId, pendingMessage, sendMessage]);
+
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -59,18 +70,23 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
     }
   };
 
+  const handleDeleteSession = (sessionId: string) => {
+    deleteSession(sessionId);
+    if (activeSessionId === sessionId) {
+      const remaining = sessions.filter((s) => s.id !== sessionId);
+      setActiveSessionId(remaining.length > 0 ? remaining[0].id : null);
+      resetStream();
+    }
+  };
+
   const handleSendMessage = async (content: string) => {
     if (!activeSessionId) {
-      // Create session first
       try {
         const session = await createSessionAsync({
           agent_id: agentId,
         });
         setActiveSessionId(session.id);
-        // Wait a tick then send
-        setTimeout(() => {
-          sendMessage({ content });
-        }, 100);
+        setPendingMessage(content);
       } catch (err) {
         console.error('Failed to create session:', err);
       }
@@ -79,100 +95,156 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
     }
   };
 
+  const formatDate = (dateStr: string) => {
+    const d = new Date(dateStr);
+    const now = new Date();
+    const diff = now.getTime() - d.getTime();
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    if (days === 0) {
+      return d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
+    }
+    if (days === 1) return '어제';
+    if (days < 7) return `${days}일 전`;
+    return d.toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' });
+  };
+
   return (
-    <div className="flex flex-col h-full">
-      {/* Session tabs */}
-      <div className="flex items-center gap-2 pb-3 border-b overflow-x-auto">
-        {sessions.map((session) => (
+    <div className="flex h-full rounded-lg border overflow-hidden">
+      {/* Left: Session list */}
+      <div className="w-60 shrink-0 border-r bg-muted/30 flex flex-col">
+        <div className="p-3 border-b">
           <Button
-            key={session.id}
-            variant={activeSessionId === session.id ? 'default' : 'outline'}
+            variant="outline"
             size="sm"
-            onClick={() => {
-              setActiveSessionId(session.id);
-              resetStream();
-            }}
+            className="w-full justify-start gap-2"
+            onClick={handleNewSession}
+            disabled={isCreatingSession}
           >
-            {session.title || '새 대화'}
+            <Plus className="h-4 w-4" />
+            새 대화
           </Button>
-        ))}
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleNewSession}
-          disabled={isCreatingSession}
-        >
-          <Plus className="h-4 w-4" />
-        </Button>
+        </div>
+
+        <ScrollArea className="flex-1">
+          <div className="p-2 space-y-1">
+            {sessions.length === 0 && (
+              <div className="px-3 py-8 text-center text-xs text-muted-foreground">
+                대화가 없습니다
+              </div>
+            )}
+            {sessions.map((session) => (
+              <div
+                key={session.id}
+                className={cn(
+                  'group flex items-center gap-2 rounded-md px-3 py-2 text-sm cursor-pointer transition-colors',
+                  activeSessionId === session.id
+                    ? 'bg-background shadow-sm border'
+                    : 'hover:bg-background/60'
+                )}
+                onClick={() => {
+                  setActiveSessionId(session.id);
+                  resetStream();
+                }}
+              >
+                <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <div className="truncate font-medium">
+                    {session.title || '새 대화'}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {formatDate(session.updated_at)}
+                  </div>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 opacity-0 group-hover:opacity-100 shrink-0"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteSession(session.id);
+                  }}
+                >
+                  <Trash2 className="h-3 w-3 text-muted-foreground" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </ScrollArea>
       </div>
 
-      {/* Messages */}
-      <ScrollArea className="flex-1 py-4">
-        <div className="space-y-4 pr-4">
-          {messages.map((msg: ChatMessageType) => (
-            <ChatMessage key={msg.id} message={msg} />
-          ))}
+      {/* Right: Chat area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Messages */}
+        <ScrollArea className="flex-1 px-4 py-4">
+          <div className="space-y-4 max-w-3xl mx-auto">
+            {messages.length === 0 && !isStreaming && (
+              <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">
+                메시지를 입력하여 대화를 시작하세요.
+              </div>
+            )}
 
-          {/* Streaming state */}
-          {isStreaming && (
-            <div className="space-y-3">
-              {/* Thinking indicator */}
-              {thinkingContent && (
-                <div className="text-sm text-muted-foreground italic px-4 py-2 bg-muted/30 rounded-md">
-                  {thinkingContent}
-                </div>
-              )}
+            {messages.map((msg: ChatMessageType) => (
+              <ChatMessage key={msg.id} message={msg} />
+            ))}
 
-              {/* Tool executions */}
-              {toolExecutions.length > 0 && (
-                <ToolExecutionLayer
-                  executions={toolExecutions}
-                  isCollapsible={true}
-                />
-              )}
+            {/* Streaming state */}
+            {isStreaming && (
+              <div className="space-y-3">
+                {thinkingContent && (
+                  <div className="text-sm text-muted-foreground italic px-4 py-2 bg-muted/30 rounded-md">
+                    {thinkingContent}
+                  </div>
+                )}
 
-              {/* Evaluation result */}
-              {evaluation && (
-                <div className="text-xs text-muted-foreground px-4 py-1">
-                  품질 점수: {(evaluation.score * 100).toFixed(0)}%
-                  {evaluation.needs_retry && ' - 재시도 중...'}
-                </div>
-              )}
+                {toolExecutions.length > 0 && (
+                  <ToolExecutionLayer
+                    executions={toolExecutions}
+                    isCollapsible={true}
+                  />
+                )}
 
-              {/* Streaming answer */}
-              {streamContent && (
-                <ChatMessage
-                  message={{
-                    id: 'streaming',
-                    session_id: activeSessionId || '',
-                    role: 'assistant',
-                    content: streamContent,
-                    created_at: new Date().toISOString(),
-                  }}
-                  isStreaming={true}
-                />
-              )}
-            </div>
-          )}
+                {evaluation && (
+                  <div className="text-xs text-muted-foreground px-4 py-1">
+                    품질 점수: {(evaluation.score * 100).toFixed(0)}%
+                    {evaluation.needs_retry && ' - 재시도 중...'}
+                  </div>
+                )}
 
-          {/* Stream error */}
-          {streamError && (
-            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
-              오류: {streamError}
-            </div>
-          )}
+                {streamContent && (
+                  <ChatMessage
+                    message={{
+                      id: 'streaming',
+                      session_id: activeSessionId || '',
+                      role: 'assistant',
+                      content: streamContent,
+                      created_at: new Date().toISOString(),
+                    }}
+                    isStreaming={true}
+                  />
+                )}
+              </div>
+            )}
 
-          <div ref={bottomRef} />
+            {streamError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                오류: {streamError}
+              </div>
+            )}
+
+            <div ref={bottomRef} />
+          </div>
+        </ScrollArea>
+
+        {/* Input */}
+        <div className="px-4 py-3 border-t">
+          <div className="max-w-3xl mx-auto">
+            <ChatInput
+              onSend={handleSendMessage}
+              disabled={isStreaming}
+              placeholder="메시지를 입력하세요..."
+            />
+          </div>
         </div>
-      </ScrollArea>
-
-      {/* Input */}
-      <div className="pt-4 border-t">
-        <ChatInput
-          onSend={handleSendMessage}
-          disabled={isStreaming}
-          placeholder="메시지를 입력하세요..."
-        />
       </div>
     </div>
   );

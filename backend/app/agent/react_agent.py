@@ -126,7 +126,7 @@ class ReActAgent:
 
         async for event_type, event_data in self.run_stream(query, **kwargs):
             if event_type == "answer_token":
-                result["response"] += event_data.get("token", "")
+                result["response"] += event_data.get("content", "")
             elif event_type in ("tool_start", "tool_result"):
                 result["tool_calls"].append(event_data)
             elif event_type == "answer_end":
@@ -188,9 +188,9 @@ class ReActAgent:
                 # Step 1: Intent Classification
                 intent = await self.intent_classifier.classify(query, tool_results)
                 yield "thinking", {
+                    "content": intent.reasoning,
                     "intent": intent.intent_type,
                     "confidence": intent.confidence,
-                    "reasoning": intent.reasoning,
                     "iteration": iteration,
                 }
 
@@ -210,7 +210,8 @@ class ReActAgent:
 
                             tool_start_time = time.time()
                             yield "tool_start", {
-                                "tool": tool.tool_type,
+                                "tool_type": tool.tool_type,
+                                "tool_name": tool.tool_type,
                                 "input": {"query": query},
                                 "iteration": iteration,
                             }
@@ -228,7 +229,8 @@ class ReActAgent:
                             )
 
                             yield "tool_result", {
-                                "tool": tool.tool_type,
+                                "tool_type": tool.tool_type,
+                                "tool_name": tool.tool_type,
                                 "output": tool_output,
                                 "duration_ms": duration_ms,
                                 "iteration": iteration,
@@ -248,7 +250,7 @@ class ReActAgent:
                 async for token, usage in self._stream_llm(messages, config):
                     if token:
                         full_response += token
-                        yield "answer_token", {"token": token}
+                        yield "answer_token", {"content": token}
                     if usage:
                         for key in total_usage:
                             total_usage[key] += usage.get(key, 0)
@@ -262,8 +264,8 @@ class ReActAgent:
 
                 yield "evaluation", {
                     "score": score,
-                    "threshold": self.eval_threshold,
-                    "pass": passed,
+                    "reasoning": f"평가 기준: {self.eval_threshold}, {'통과' if passed else '미달'}",
+                    "needs_retry": not passed,
                     "iteration": iteration,
                 }
 

@@ -191,7 +191,7 @@ class ChatService:
                 data.content, history=history, config=data.config
             ):
                 if event_type == "answer_token":
-                    full_response += event_data.get("token", "")
+                    full_response += event_data.get("content", "")
                 elif event_type == "tool_start" or event_type == "tool_result":
                     tool_calls_data.append(event_data)
                 elif event_type == "answer_end":

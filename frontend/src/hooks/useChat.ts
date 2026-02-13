@@ -163,6 +163,9 @@ export function useStreamChat(sessionId: string) {
         handleEvent,
         handleError
       );
+
+      // Safety: ensure streaming state is reset when connection closes
+      setIsStreaming(false);
     },
     [sessionId, queryClient, resetStream]
   );
