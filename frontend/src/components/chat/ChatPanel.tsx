@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { useChatSessions, useChatMessages, useStreamChat } from '@/hooks/useChat';
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
+import { LoadingIndicator } from './LoadingIndicator';
 import { ToolExecutionLayer } from './ToolExecutionLayer';
 import type { ChatMessage as ChatMessageType } from '@/types';
 
@@ -16,6 +17,7 @@ interface ChatPanelProps {
 export function ChatPanel({ agentId }: ChatPanelProps) {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [pendingUserMessage, setPendingUserMessage] = useState<ChatMessageType | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -48,15 +50,40 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
   // Send pending message after session is created and hook has correct sessionId
   useEffect(() => {
     if (activeSessionId && pendingMessage) {
+      // Optimistic UI: show user message immediately
+      setPendingUserMessage({
+        id: `pending-${Date.now()}`,
+        session_id: activeSessionId,
+        role: 'user',
+        content: pendingMessage,
+        created_at: new Date().toISOString(),
+      });
       sendMessage({ content: pendingMessage });
       setPendingMessage(null);
     }
   }, [activeSessionId, pendingMessage, sendMessage]);
 
+  // Clear pending user message once it appears in fetched messages
+  useEffect(() => {
+    if (pendingUserMessage && messages.length > 0) {
+      const found = messages.some(
+        (m) => m.role === 'user' && m.content === pendingUserMessage.content
+      );
+      if (found) {
+        setPendingUserMessage(null);
+      }
+    }
+  }, [messages, pendingUserMessage]);
+
+  // Build display messages: fetched + pending user message
+  const displayMessages = pendingUserMessage
+    ? [...messages, pendingUserMessage]
+    : messages;
+
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, streamContent, toolExecutions]);
+  }, [displayMessages, streamContent, toolExecutions, isStreaming]);
 
   const handleNewSession = async () => {
     try {
@@ -65,6 +92,7 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
       });
       setActiveSessionId(session.id);
       resetStream();
+      setPendingUserMessage(null);
     } catch (err) {
       console.error('Failed to create session:', err);
     }
@@ -76,6 +104,7 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
       const remaining = sessions.filter((s) => s.id !== sessionId);
       setActiveSessionId(remaining.length > 0 ? remaining[0].id : null);
       resetStream();
+      setPendingUserMessage(null);
     }
   };
 
@@ -91,6 +120,14 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
         console.error('Failed to create session:', err);
       }
     } else {
+      // Optimistic UI: show user message immediately
+      setPendingUserMessage({
+        id: `pending-${Date.now()}`,
+        session_id: activeSessionId,
+        role: 'user',
+        content,
+        created_at: new Date().toISOString(),
+      });
       sendMessage({ content });
     }
   };
@@ -144,6 +181,7 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
                 onClick={() => {
                   setActiveSessionId(session.id);
                   resetStream();
+                  setPendingUserMessage(null);
                 }}
               >
                 <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -177,25 +215,19 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
         {/* Messages */}
         <ScrollArea className="flex-1 px-4 py-4">
           <div className="space-y-4 max-w-3xl mx-auto">
-            {messages.length === 0 && !isStreaming && (
+            {displayMessages.length === 0 && !isStreaming && (
               <div className="flex items-center justify-center h-48 text-sm text-muted-foreground">
                 메시지를 입력하여 대화를 시작하세요.
               </div>
             )}
 
-            {messages.map((msg: ChatMessageType) => (
+            {displayMessages.map((msg: ChatMessageType) => (
               <ChatMessage key={msg.id} message={msg} />
             ))}
 
             {/* Streaming state */}
             {isStreaming && (
               <div className="space-y-3">
-                {thinkingContent && (
-                  <div className="text-sm text-muted-foreground italic px-4 py-2 bg-muted/30 rounded-md">
-                    {thinkingContent}
-                  </div>
-                )}
-
                 {toolExecutions.length > 0 && (
                   <ToolExecutionLayer
                     executions={toolExecutions}
@@ -203,14 +235,7 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
                   />
                 )}
 
-                {evaluation && (
-                  <div className="text-xs text-muted-foreground px-4 py-1">
-                    품질 점수: {(evaluation.score * 100).toFixed(0)}%
-                    {evaluation.needs_retry && ' - 재시도 중...'}
-                  </div>
-                )}
-
-                {streamContent && (
+                {streamContent ? (
                   <ChatMessage
                     message={{
                       id: 'streaming',
@@ -221,6 +246,14 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
                     }}
                     isStreaming={true}
                   />
+                ) : (
+                  <div className="flex gap-3">
+                    <div className="h-8 w-8" />
+                    <div className="flex items-center gap-2 rounded-lg bg-muted px-4 py-3">
+                      <LoadingIndicator />
+                      <span className="text-sm text-muted-foreground">생각 중...</span>
+                    </div>
+                  </div>
                 )}
               </div>
             )}

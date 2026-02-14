@@ -259,8 +259,13 @@ class ReActAgent:
                 ctx = await self.mw_chain.run_after_llm(full_response, ctx)
 
                 # Step 4: Evaluation
-                score = await self.evaluator.evaluate(query, full_response, tool_results)
-                passed = score >= self.eval_threshold
+                # General chat without tool usage → skip evaluation (always pass)
+                if intent.intent_type == "general_chat" and not tool_results:
+                    score = 1.0
+                    passed = True
+                else:
+                    score = await self.evaluator.evaluate(query, full_response, tool_results)
+                    passed = score >= self.eval_threshold
 
                 yield "evaluation", {
                     "score": score,
