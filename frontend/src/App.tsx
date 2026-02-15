@@ -9,6 +9,7 @@ import { RegisterPage } from '@/pages/RegisterPage';
 import { MyAgentsPage } from '@/pages/MyAgentsPage';
 import { AgentChatPage } from '@/pages/AgentChatPage';
 import { AgentCreatePage } from '@/pages/AgentCreatePage';
+import { AgentEditPage } from '@/pages/AgentEditPage';
 import { TemplatesPage } from '@/pages/TemplatesPage';
 import { DashboardPage } from '@/pages/DashboardPage';
 import { MyPage } from '@/pages/MyPage';
@@ -29,6 +30,7 @@ function App() {
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
               <Route path="/agents" element={<MyAgentsPage />} />
               <Route path="/agents/create" element={<AgentCreatePage />} />
+              <Route path="/agents/:id/edit" element={<AgentEditPage />} />
               <Route path="/agents/:id/chat" element={<AgentChatPage />} />
               <Route path="/templates" element={<TemplatesPage />} />
               <Route path="/dashboard" element={<DashboardPage />} />

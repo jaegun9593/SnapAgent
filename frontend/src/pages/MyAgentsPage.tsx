@@ -51,6 +51,7 @@ export function MyAgentsPage() {
               key={agent.id}
               agent={agent}
               onChat={() => navigate(`/agents/${agent.id}/chat`)}
+              onEdit={() => navigate(`/agents/${agent.id}/edit`)}
               onDelete={async () => {
                 if (confirm('정말 이 Agent를 삭제하시겠습니까?')) {
                   await deleteAgentAsync(agent.id);

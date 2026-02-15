@@ -1,4 +1,4 @@
-import { MessageSquare, Trash2, Clock, Bot } from 'lucide-react';
+import { MessageSquare, Pencil, Trash2, Clock, Bot } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -14,6 +14,7 @@ import type { Agent } from '@/types';
 interface AgentCardProps {
   agent: Agent;
   onChat: () => void;
+  onEdit: () => void;
   onDelete: () => void;
   isDeleting: boolean;
 }
@@ -26,7 +27,7 @@ const statusConfig: Record<string, { label: string; variant: 'default' | 'second
   error: { label: '오류', variant: 'destructive' },
 };
 
-export function AgentCard({ agent, onChat, onDelete, isDeleting }: AgentCardProps) {
+export function AgentCard({ agent, onChat, onEdit, onDelete, isDeleting }: AgentCardProps) {
   const status = statusConfig[agent.status] || statusConfig.draft;
 
   const formatDate = (dateString: string) => {
@@ -77,6 +78,13 @@ export function AgentCard({ agent, onChat, onDelete, isDeleting }: AgentCardProp
         <Button className="flex-1" onClick={onChat}>
           <MessageSquare className="mr-2 h-4 w-4" />
           채팅
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={onEdit}
+        >
+          <Pencil className="h-4 w-4" />
         </Button>
         <Button
           variant="outline"
