@@ -20,8 +20,8 @@ interface AgentCreateWizardProps {
 const STEPS: Step[] = [
   { id: 1, name: '선호 설정', description: '목적, 형식, 톤 설정' },
   { id: 2, name: '기본 정보', description: '이름, 설명, 시스템 프롬프트' },
-  { id: 3, name: '파일 업로드', description: 'RAG용 문서 업로드' },
-  { id: 4, name: '도구 선택', description: '사용할 도구 설정' },
+  { id: 3, name: '도구 선택', description: '사용할 도구 설정' },
+  { id: 4, name: '파일 업로드', description: 'RAG용 문서 업로드' },
   { id: 5, name: '모델 선택', description: 'LLM 및 임베딩 모델' },
   { id: 6, name: '테스트', description: 'Agent 테스트' },
 ];
@@ -52,6 +52,11 @@ export function AgentCreateWizard({ onComplete, onCancel }: AgentCreateWizardPro
       if (!preferences.task_purpose || !preferences.response_format || !preferences.response_tone) {
         return;
       }
+      // Auto-generate system prompt from preferences
+      const generated = generateSystemPrompt(preferences);
+      if (generated) {
+        setAgentData((prev) => ({ ...prev, system_prompt: generated }));
+      }
     }
 
     if (currentStep === 5) {
@@ -59,19 +64,10 @@ export function AgentCreateWizard({ onComplete, onCancel }: AgentCreateWizardPro
       try {
         setIsProcessing(true);
 
-        // Prepend preference-based prompt to system_prompt
-        const prefPrompt = generateSystemPrompt(preferences);
-        const basePrompt = agentData.system_prompt || '';
-        const finalPrompt = prefPrompt
-          ? basePrompt
-            ? `${prefPrompt}\n\n${basePrompt}`
-            : prefPrompt
-          : basePrompt;
-
         const agent = await createAgentAsync({
           name: agentData.name || 'New Agent',
           description: agentData.description,
-          system_prompt: finalPrompt,
+          system_prompt: agentData.system_prompt,
           template_id: agentData.template_id,
           model_id: agentData.model_id,
           embedding_model_id: agentData.embedding_model_id,
@@ -155,15 +151,15 @@ export function AgentCreateWizard({ onComplete, onCancel }: AgentCreateWizardPro
         />
       )}
       {currentStep === 3 && (
-        <FileUploadStep
-          fileIds={fileIds}
-          onChange={setFileIds}
-        />
-      )}
-      {currentStep === 4 && (
         <ToolSelectStep
           tools={tools}
           onChange={setTools}
+        />
+      )}
+      {currentStep === 4 && (
+        <FileUploadStep
+          fileIds={fileIds}
+          onChange={setFileIds}
         />
       )}
       {currentStep === 5 && (

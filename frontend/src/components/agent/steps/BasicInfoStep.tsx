@@ -1,14 +1,6 @@
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { useTemplates } from '@/hooks/useTemplates';
 import type { AgentCreate, AgentPreferences } from '@/types';
 
 interface BasicInfoStepProps {
@@ -41,21 +33,6 @@ function labelFor(value: string, map: Record<string, string>): string {
 }
 
 export function BasicInfoStep({ data, onChange, preferences }: BasicInfoStepProps) {
-  const { templates } = useTemplates();
-
-  const handleTemplateChange = (val: string) => {
-    if (val === 'none') {
-      onChange({ template_id: undefined });
-      return;
-    }
-
-    const selected = templates.find((t) => t.id === val);
-    onChange({
-      template_id: val,
-      system_prompt: selected?.system_prompt_template || data.system_prompt,
-    });
-  };
-
   const hasPreferences = preferences && (preferences.task_purpose || preferences.response_format || preferences.response_tone);
 
   return (
@@ -87,29 +64,6 @@ export function BasicInfoStep({ data, onChange, preferences }: BasicInfoStepProp
             </div>
           </div>
         )}
-
-        <div className="space-y-2">
-          <Label htmlFor="template">템플릿 (선택사항)</Label>
-          <Select
-            value={data.template_id || 'none'}
-            onValueChange={handleTemplateChange}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="템플릿을 선택하세요" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">직접 구성</SelectItem>
-              {templates.map((t) => (
-                <SelectItem key={t.id} value={t.id}>
-                  {t.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            템플릿을 선택하면 시스템 프롬프트가 자동 입력됩니다.
-          </p>
-        </div>
 
         <div className="space-y-2">
           <Label htmlFor="name">Agent 이름 *</Label>

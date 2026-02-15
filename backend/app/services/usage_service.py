@@ -51,17 +51,22 @@ class UsageService:
         """Get usage summary for a user."""
         start, end = self._get_period(start_date, end_date)
 
-        query = select(
-            func.count(UsageLog.id).label("total_calls"),
-            func.coalesce(func.sum(UsageLog.prompt_tokens), 0).label("prompt_tokens"),
-            func.coalesce(func.sum(UsageLog.completion_tokens), 0).label("completion_tokens"),
-            func.coalesce(func.sum(UsageLog.total_tokens), 0).label("total_tokens"),
-            func.coalesce(func.sum(UsageLog.cost), 0).label("total_cost"),
-            func.coalesce(func.avg(UsageLog.latency_ms), 0).label("avg_latency"),
-        ).where(
-            UsageLog.user_email == user.email,
-            cast(UsageLog.created_at, Date) >= start,
-            cast(UsageLog.created_at, Date) <= end,
+        query = (
+            select(
+                func.count(UsageLog.id).label("total_calls"),
+                func.coalesce(func.sum(UsageLog.prompt_tokens), 0).label("prompt_tokens"),
+                func.coalesce(func.sum(UsageLog.completion_tokens), 0).label("completion_tokens"),
+                func.coalesce(func.sum(UsageLog.total_tokens), 0).label("total_tokens"),
+                func.coalesce(func.sum(UsageLog.cost), 0).label("total_cost"),
+                func.coalesce(func.avg(UsageLog.latency_ms), 0).label("avg_latency"),
+            )
+            .join(Agent, Agent.id == UsageLog.agent_id, isouter=True)
+            .where(
+                UsageLog.user_email == user.email,
+                cast(UsageLog.created_at, Date) >= start,
+                cast(UsageLog.created_at, Date) <= end,
+                Agent.use_yn == "Y",
+            )
         )
 
         if agent_id:
@@ -110,10 +115,12 @@ class UsageService:
                 func.coalesce(func.sum(UsageLog.total_tokens), 0).label("total_tokens"),
                 func.coalesce(func.sum(UsageLog.cost), 0).label("cost"),
             )
+            .join(Agent, Agent.id == UsageLog.agent_id, isouter=True)
             .where(
                 UsageLog.user_email == user.email,
                 cast(UsageLog.created_at, Date) >= start,
                 cast(UsageLog.created_at, Date) <= end,
+                Agent.use_yn == "Y",
             )
             .group_by(cast(UsageLog.created_at, Date))
             .order_by(cast(UsageLog.created_at, Date))
@@ -154,39 +161,35 @@ class UsageService:
         query = (
             select(
                 UsageLog.agent_id,
+                Agent.name.label("agent_name"),
                 func.count(UsageLog.id).label("calls"),
                 func.coalesce(func.sum(UsageLog.total_tokens), 0).label("total_tokens"),
                 func.coalesce(func.sum(UsageLog.cost), 0).label("cost"),
             )
+            .join(Agent, Agent.id == UsageLog.agent_id)
             .where(
                 UsageLog.user_email == user.email,
                 cast(UsageLog.created_at, Date) >= start,
                 cast(UsageLog.created_at, Date) <= end,
                 UsageLog.agent_id.isnot(None),
+                Agent.use_yn == "Y",
             )
-            .group_by(UsageLog.agent_id)
+            .group_by(UsageLog.agent_id, Agent.name)
         )
 
         result = await self.db.execute(query)
         rows = result.all()
 
-        data = []
-        for row in rows:
-            # Get agent name
-            agent_result = await self.db.execute(
-                select(Agent.name).where(Agent.id == row.agent_id)
+        data = [
+            AgentUsage(
+                agent_id=str(row.agent_id),
+                agent_name=row.agent_name or "Unknown",
+                calls=row.calls,
+                total_tokens=row.total_tokens,
+                cost=float(row.cost),
             )
-            agent_name = agent_result.scalar() or "Unknown"
-
-            data.append(
-                AgentUsage(
-                    agent_id=str(row.agent_id),
-                    agent_name=agent_name,
-                    calls=row.calls,
-                    total_tokens=row.total_tokens,
-                    cost=float(row.cost),
-                )
-            )
+            for row in rows
+        ]
 
         return AgentUsageResponse(
             data=data,
