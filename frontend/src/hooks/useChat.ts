@@ -133,13 +133,20 @@ export function useStreamChat(sessionId: string) {
             ]);
             break;
           }
-          case 'tool_result':
+          case 'tool_result': {
+            // Safely extract string output (backend may send object or string)
+            const toolOutput = typeof event.output === 'string'
+              ? event.output
+              : typeof event.output === 'object' && event.output !== null
+                ? ((event.output as Record<string, unknown>).output as string || JSON.stringify(event.output))
+                : String(event.output || '');
+
             setToolExecutions((prev) =>
               prev.map((t) =>
                 t.tool_name === event.tool_name && t.status === 'running'
                   ? {
                       ...t,
-                      output: event.output,
+                      output: toolOutput,
                       status: 'completed' as const,
                       completed_at: new Date().toISOString(),
                       duration_ms: event.duration_ms,
@@ -157,7 +164,7 @@ export function useStreamChat(sessionId: string) {
                       status: 'completed',
                       data: {
                         ...s.data,
-                        output: event.output,
+                        output: toolOutput,
                         duration_ms: event.duration_ms,
                       },
                     }
@@ -165,6 +172,7 @@ export function useStreamChat(sessionId: string) {
               )
             );
             break;
+          }
           case 'evaluation':
             setReactSteps((prev) => [
               ...prev,

@@ -139,9 +139,14 @@ export function ToolExecutionDetail({ execution }: ToolExecutionDetailProps) {
                     결과
                   </div>
                   <div className="text-xs bg-muted/50 rounded p-2 max-h-48 overflow-y-auto whitespace-pre-wrap">
-                    {execution.output.length > 500
-                      ? execution.output.slice(0, 500) + '...'
-                      : execution.output}
+                    {(() => {
+                      const text = typeof execution.output === 'string'
+                        ? execution.output
+                        : typeof execution.output === 'object'
+                          ? (execution.output as Record<string, unknown>).output as string || JSON.stringify(execution.output, null, 2)
+                          : String(execution.output);
+                      return text.length > 500 ? text.slice(0, 500) + '...' : text;
+                    })()}
                   </div>
                 </div>
               )}

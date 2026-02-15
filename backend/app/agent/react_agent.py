@@ -128,8 +128,19 @@ class ReActAgent:
         async for event_type, event_data in self.run_stream(query, **kwargs):
             if event_type == "answer_token":
                 result["response"] += event_data.get("content", "")
-            elif event_type in ("tool_start", "tool_result"):
+            elif event_type == "tool_start":
                 result["tool_calls"].append(event_data)
+            elif event_type == "tool_result":
+                # Merge tool_result into its matching tool_start entry
+                merged = False
+                for tc in reversed(result["tool_calls"]):
+                    if tc.get("tool_type") == event_data.get("tool_type") and "output" not in tc:
+                        tc["output"] = event_data.get("output", "")
+                        tc["duration_ms"] = event_data.get("duration_ms")
+                        merged = True
+                        break
+                if not merged:
+                    result["tool_calls"].append(event_data)
             elif event_type == "answer_end":
                 result["token_usage"] = event_data.get("usage", {})
             elif event_type == "error":
@@ -233,7 +244,7 @@ class ReActAgent:
                         yield "tool_result", {
                             "tool_type": tool.tool_type,
                             "tool_name": tool.tool_type,
-                            "output": tool_output,
+                            "output": tool_output.get("output", ""),
                             "duration_ms": duration_ms,
                             "iteration": iteration,
                         }

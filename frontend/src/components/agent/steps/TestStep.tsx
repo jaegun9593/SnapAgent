@@ -65,7 +65,11 @@ export function TestStep({ agentId }: TestStepProps) {
             tool_type: (tc.tool as string) || (tc.tool_type as string) || 'unknown',
             tool_name: (tc.tool as string) || (tc.tool_name as string) || 'unknown',
             input: tc.input as Record<string, unknown>,
-            output: (tc.output as string) || '',
+            output: typeof tc.output === 'string'
+              ? tc.output
+              : typeof tc.output === 'object' && tc.output !== null
+                ? (tc.output as Record<string, unknown>).output as string || JSON.stringify(tc.output)
+                : String(tc.output || ''),
             status: 'completed' as const,
             duration_ms: tc.duration_ms as number | undefined,
           })) || [];
