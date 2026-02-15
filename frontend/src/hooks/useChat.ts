@@ -6,6 +6,7 @@ import type {
   ChatMessageCreate,
   StreamEvent,
   ToolExecution,
+  ReActStep,
 } from '@/types';
 
 export function useChatSessions(agentId?: string) {
@@ -72,20 +73,14 @@ export function useStreamChat(sessionId: string) {
   const queryClient = useQueryClient();
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamContent, setStreamContent] = useState('');
-  const [thinkingContent, setThinkingContent] = useState('');
+  const [reactSteps, setReactSteps] = useState<ReActStep[]>([]);
   const [toolExecutions, setToolExecutions] = useState<ToolExecution[]>([]);
-  const [evaluation, setEvaluation] = useState<{
-    score: number;
-    reasoning: string;
-    needs_retry: boolean;
-  } | null>(null);
   const [streamError, setStreamError] = useState<string | null>(null);
 
   const resetStream = useCallback(() => {
     setStreamContent('');
-    setThinkingContent('');
+    setReactSteps([]);
     setToolExecutions([]);
-    setEvaluation(null);
     setStreamError(null);
   }, []);
 
@@ -99,20 +94,45 @@ export function useStreamChat(sessionId: string) {
       const handleEvent = (event: StreamEvent) => {
         switch (event.type) {
           case 'thinking':
-            setThinkingContent((prev) => prev + event.content);
-            break;
-          case 'tool_start':
-            setToolExecutions((prev) => [
+            setReactSteps((prev) => [
               ...prev,
               {
-                tool_type: event.tool_type,
-                tool_name: event.tool_name,
-                input: event.input,
-                status: 'running',
-                started_at: new Date().toISOString(),
+                type: 'intent',
+                status: 'completed',
+                data: {
+                  content: event.content,
+                  intent: event.intent || 'unknown',
+                  confidence: event.confidence || 0,
+                  iteration: event.iteration || 1,
+                },
+                timestamp: new Date().toISOString(),
               },
             ]);
             break;
+          case 'tool_start': {
+            const toolExec: ToolExecution = {
+              tool_type: event.tool_type,
+              tool_name: event.tool_name,
+              input: event.input,
+              status: 'running',
+              started_at: new Date().toISOString(),
+            };
+            setToolExecutions((prev) => [...prev, toolExec]);
+            setReactSteps((prev) => [
+              ...prev,
+              {
+                type: 'tool',
+                status: 'running',
+                data: {
+                  tool_type: event.tool_type,
+                  tool_name: event.tool_name,
+                  input: event.input,
+                },
+                timestamp: new Date().toISOString(),
+              },
+            ]);
+            break;
+          }
           case 'tool_result':
             setToolExecutions((prev) =>
               prev.map((t) =>
@@ -127,22 +147,52 @@ export function useStreamChat(sessionId: string) {
                   : t
               )
             );
+            setReactSteps((prev) =>
+              prev.map((s) =>
+                s.type === 'tool' &&
+                s.status === 'running' &&
+                s.data.tool_name === event.tool_name
+                  ? {
+                      ...s,
+                      status: 'completed',
+                      data: {
+                        ...s.data,
+                        output: event.output,
+                        duration_ms: event.duration_ms,
+                      },
+                    }
+                  : s
+              )
+            );
             break;
           case 'evaluation':
-            setEvaluation({
-              score: event.score,
-              reasoning: event.reasoning,
-              needs_retry: event.needs_retry,
-            });
+            setReactSteps((prev) => [
+              ...prev,
+              {
+                type: 'evaluation',
+                status: event.needs_retry ? 'running' : 'completed',
+                data: {
+                  score: event.score,
+                  reasoning: event.reasoning,
+                  needs_retry: event.needs_retry,
+                },
+                timestamp: new Date().toISOString(),
+              },
+            ]);
             break;
           case 'answer_token':
             setStreamContent((prev) => prev + event.content);
             break;
           case 'answer_end':
+            break;
           case 'done':
             setIsStreaming(false);
+            setStreamContent('');
             queryClient.invalidateQueries({
               queryKey: ['chat-messages', sessionId],
+            });
+            queryClient.invalidateQueries({
+              queryKey: ['chat-sessions'],
             });
             break;
           case 'error':
@@ -173,9 +223,8 @@ export function useStreamChat(sessionId: string) {
   return {
     isStreaming,
     streamContent,
-    thinkingContent,
+    reactSteps,
     toolExecutions,
-    evaluation,
     streamError,
     sendMessage,
     resetStream,

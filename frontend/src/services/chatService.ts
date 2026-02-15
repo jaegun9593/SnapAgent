@@ -3,7 +3,6 @@ import type {
   ChatSession,
   ChatSessionCreate,
   ChatSessionListResponse,
-  ChatMessage,
   ChatMessageCreate,
   ChatMessageListResponse,
   StreamEvent,

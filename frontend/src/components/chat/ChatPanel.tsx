@@ -7,7 +7,7 @@ import { useChatSessions, useChatMessages, useStreamChat } from '@/hooks/useChat
 import { ChatMessage } from './ChatMessage';
 import { ChatInput } from './ChatInput';
 import { LoadingIndicator } from './LoadingIndicator';
-import { ToolExecutionLayer } from './ToolExecutionLayer';
+import { ReActStepsLayer } from './ReActStepsLayer';
 import type { ChatMessage as ChatMessageType } from '@/types';
 
 interface ChatPanelProps {
@@ -32,9 +32,8 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
   const {
     isStreaming,
     streamContent,
-    thinkingContent,
+    reactSteps,
     toolExecutions,
-    evaluation,
     streamError,
     sendMessage,
     resetStream,
@@ -83,7 +82,7 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
   // Auto-scroll to bottom
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages, streamContent, toolExecutions, isStreaming]);
+  }, [displayMessages, streamContent, reactSteps, isStreaming]);
 
   const handleNewSession = async () => {
     try {
@@ -221,20 +220,35 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
               </div>
             )}
 
-            {displayMessages.map((msg: ChatMessageType) => (
-              <ChatMessage key={msg.id} message={msg} />
-            ))}
+            {/* Render messages with ReAct steps inserted after the last user message */}
+            {(() => {
+              // Find where to insert ReAct steps: after the last user message
+              const hasSteps = reactSteps.length > 0;
+              let insertIdx = -1;
+              if (hasSteps) {
+                for (let i = displayMessages.length - 1; i >= 0; i--) {
+                  if (displayMessages[i].role === 'user') {
+                    insertIdx = i;
+                    break;
+                  }
+                }
+              }
+
+              return displayMessages.map((msg: ChatMessageType, idx: number) => (
+                <div key={msg.id}>
+                  <ChatMessage message={msg} />
+                  {idx === insertIdx && (
+                    <div className="mt-4">
+                      <ReActStepsLayer steps={reactSteps} isStreaming={isStreaming} />
+                    </div>
+                  )}
+                </div>
+              ));
+            })()}
 
             {/* Streaming state */}
             {isStreaming && (
               <div className="space-y-3">
-                {toolExecutions.length > 0 && (
-                  <ToolExecutionLayer
-                    executions={toolExecutions}
-                    isCollapsible={true}
-                  />
-                )}
-
                 {streamContent ? (
                   <ChatMessage
                     message={{

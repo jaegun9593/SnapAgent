@@ -261,6 +261,14 @@ export interface ChatMessageListResponse {
   total: number;
 }
 
+// ReAct step tracking for UI layers
+export interface ReActStep {
+  type: 'intent' | 'tool' | 'evaluation';
+  status: 'running' | 'completed' | 'error';
+  data: Record<string, unknown>;
+  timestamp: string;
+}
+
 // SSE Stream Event types (from agent ReAct loop)
 export type StreamEventType =
   | 'thinking'
@@ -286,6 +294,9 @@ export interface ToolExecution {
 export interface StreamThinkingEvent {
   type: 'thinking';
   content: string;
+  intent?: string;
+  confidence?: number;
+  iteration?: number;
 }
 
 export interface StreamToolStartEvent {

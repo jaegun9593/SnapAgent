@@ -2,11 +2,15 @@
 DuckDuckGo web search tool for real-time information retrieval.
 """
 import logging
+import time
 from typing import Any, Dict, List, Optional
 
 from app.agent.tools.base import BaseTool
 
 logger = logging.getLogger(__name__)
+
+# Backends to try in order (lite is more reliable against rate limits)
+_BACKENDS = ["lite", "api", "html"]
 
 
 class WebSearchTool(BaseTool):
@@ -32,6 +36,8 @@ class WebSearchTool(BaseTool):
         """
         Search the web using DuckDuckGo.
 
+        Tries multiple backends (lite → api → html) to handle rate limits.
+
         Args:
             query: The search query
             config: Configuration with max_results
@@ -41,30 +47,52 @@ class WebSearchTool(BaseTool):
         """
         max_results = (config or {}).get("max_results", 5)
 
-        try:
-            from duckduckgo_search import DDGS
+        from duckduckgo_search import DDGS
+        from duckduckgo_search.exceptions import RatelimitException
 
-            results_list = []
-            content_parts = []
+        last_error = None
 
-            with DDGS() as ddgs:
-                search_results = list(ddgs.text(query, max_results=max_results))
+        for backend in _BACKENDS:
+            try:
+                results_list = []  # type: List[Dict[str, Any]]
+                content_parts = []  # type: List[str]
 
-                for result in search_results:
-                    result_data = {
-                        "title": result.get("title", ""),
-                        "url": result.get("href", ""),
-                        "snippet": result.get("body", ""),
-                    }
-                    results_list.append(result_data)
-                    content_parts.append(
-                        f"**{result_data['title']}**\n{result_data['snippet']}\nSource: {result_data['url']}"
+                with DDGS() as ddgs:
+                    search_results = list(
+                        ddgs.text(query, max_results=max_results, backend=backend)
                     )
 
-            content = "\n\n---\n\n".join(content_parts) if content_parts else "No search results found"
+                    for result in search_results:
+                        result_data = {
+                            "title": result.get("title", ""),
+                            "url": result.get("href", ""),
+                            "snippet": result.get("body", ""),
+                        }
+                        results_list.append(result_data)
+                        content_parts.append(
+                            f"**{result_data['title']}**\n"
+                            f"{result_data['snippet']}\n"
+                            f"Source: {result_data['url']}"
+                        )
 
-            return {"content": content, "results": results_list}
+                content = (
+                    "\n\n---\n\n".join(content_parts)
+                    if content_parts
+                    else "No search results found"
+                )
+                return {"content": content, "results": results_list}
 
-        except Exception as e:
-            logger.error(f"Web search error: {e}")
-            return {"content": f"Web search failed: {str(e)}", "results": []}
+            except RatelimitException:
+                logger.warning("DDG rate limit on backend=%s, trying next", backend)
+                last_error = "Rate limited on all backends"
+                time.sleep(0.5)
+                continue
+            except Exception as e:
+                logger.error("Web search error (backend=%s): %s", backend, e)
+                last_error = str(e)
+                continue
+
+        return {
+            "content": f"Web search failed: {last_error}",
+            "results": [],
+        }
