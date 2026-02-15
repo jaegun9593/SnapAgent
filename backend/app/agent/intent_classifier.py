@@ -40,8 +40,19 @@ class IntentClassifier:
         "what is", "who is", "how to",
     ]
 
+    # Preference-based score weights for task_purpose
+    PURPOSE_WEIGHTS: Dict[str, Dict[str, int]] = {
+        "research": {"web_search": 2},
+        "monitoring": {"web_search": 2},
+        "qa": {"rag": 2},
+        "summary": {"rag": 2},
+    }
+
     async def classify(
-        self, query: str, previous_results: Optional[List[Dict[str, Any]]] = None
+        self,
+        query: str,
+        previous_results: Optional[List[Dict[str, Any]]] = None,
+        preferences: Optional[Dict[str, Any]] = None,
     ) -> IntentResult:
         """
         Classify the user's intent from their query.
@@ -49,6 +60,7 @@ class IntentClassifier:
         Args:
             query: The user's question
             previous_results: Results from previous tool executions (for re-query)
+            preferences: Agent preferences dict with task_purpose, response_format, response_tone
 
         Returns:
             IntentResult with classified intent
@@ -57,6 +69,13 @@ class IntentClassifier:
 
         rag_score = sum(1 for kw in self.RAG_KEYWORDS if kw in query_lower)
         web_score = sum(1 for kw in self.WEB_KEYWORDS if kw in query_lower)
+
+        # Apply preference-based weights
+        if preferences:
+            task_purpose = preferences.get("task_purpose", "")
+            weights = self.PURPOSE_WEIGHTS.get(task_purpose, {})
+            rag_score += weights.get("rag", 0)
+            web_score += weights.get("web_search", 0)
 
         # If this is a re-query iteration with previous results, prefer different tools
         if previous_results:

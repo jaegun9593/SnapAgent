@@ -37,6 +37,13 @@ export interface UserUpdate {
   password?: string;
 }
 
+// Agent preference types
+export interface AgentPreferences {
+  task_purpose: string;    // 'research' | 'qa' | 'summary' | 'monitoring' | custom string
+  response_format: string; // 'brief' | 'detailed' | 'list' | custom string
+  response_tone: string;   // 'formal' | 'casual' | 'professional' | custom string
+}
+
 // Agent types
 export type AgentStatus = 'draft' | 'configured' | 'processing' | 'ready' | 'error';
 export type ToolType = 'rag' | 'web_search' | 'custom_api';

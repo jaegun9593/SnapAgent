@@ -9,14 +9,38 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useTemplates } from '@/hooks/useTemplates';
-import type { AgentCreate } from '@/types';
+import type { AgentCreate, AgentPreferences } from '@/types';
 
 interface BasicInfoStepProps {
   data: Partial<AgentCreate>;
   onChange: (data: Partial<AgentCreate>) => void;
+  preferences?: AgentPreferences;
 }
 
-export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
+const PURPOSE_LABELS: Record<string, string> = {
+  research: '정보 조사/리서치',
+  qa: '문서 기반 Q&A',
+  summary: '문서 요약/분석',
+  monitoring: '실시간 모니터링',
+};
+
+const FORMAT_LABELS: Record<string, string> = {
+  brief: '간단한 요약',
+  detailed: '상세 분석 리포트',
+  list: '핵심 목록 + 링크',
+};
+
+const TONE_LABELS: Record<string, string> = {
+  formal: '공식적/전문적',
+  casual: '친근하고 캐주얼',
+  professional: '친절하고 프로페셔널',
+};
+
+function labelFor(value: string, map: Record<string, string>): string {
+  return map[value] || value || '-';
+}
+
+export function BasicInfoStep({ data, onChange, preferences }: BasicInfoStepProps) {
   const { templates } = useTemplates();
 
   const handleTemplateChange = (val: string) => {
@@ -32,6 +56,8 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
     });
   };
 
+  const hasPreferences = preferences && (preferences.task_purpose || preferences.response_format || preferences.response_tone);
+
   return (
     <div className="space-y-6">
       <div>
@@ -42,6 +68,26 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
       </div>
 
       <div className="space-y-4">
+        {hasPreferences && (
+          <div className="rounded-lg border bg-muted/50 p-4 space-y-2">
+            <h4 className="text-sm font-medium text-muted-foreground">선호 설정 요약</h4>
+            <div className="grid grid-cols-3 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">목적: </span>
+                <span className="font-medium">{labelFor(preferences.task_purpose, PURPOSE_LABELS)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">형식: </span>
+                <span className="font-medium">{labelFor(preferences.response_format, FORMAT_LABELS)}</span>
+              </div>
+              <div>
+                <span className="text-muted-foreground">톤: </span>
+                <span className="font-medium">{labelFor(preferences.response_tone, TONE_LABELS)}</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
           <Label htmlFor="template">템플릿 (선택사항)</Label>
           <Select
@@ -97,6 +143,7 @@ export function BasicInfoStep({ data, onChange }: BasicInfoStepProps) {
           />
           <p className="text-xs text-muted-foreground">
             Agent가 어떤 역할로 응답할지, 어떤 톤으로 답변할지 등을 지시합니다.
+            선호 설정에 따른 지시문이 자동으로 앞에 추가됩니다.
           </p>
         </div>
       </div>

@@ -150,6 +150,7 @@ SnapAgent/
 │   │   │   │   ├── AgentCard.tsx
 │   │   │   │   ├── AgentCreateWizard.tsx  # 생성 위자드 컨테이너
 │   │   │   │   ├── steps/
+│   │   │   │   │   ├── PreferenceStep.tsx # 선호 설정 (목적/형식/톤)
 │   │   │   │   │   ├── BasicInfoStep.tsx  # 기본정보 + 시스템프롬프트
 │   │   │   │   │   ├── FileUploadStep.tsx # 파일 등록 (RAG용)
 │   │   │   │   │   ├── ToolSelectStep.tsx # Tool 선택
@@ -190,6 +191,7 @@ SnapAgent/
 │   │   │   └── authStore.ts           # Zustand (토큰 + 사용자 상태)
 │   │   └── lib/
 │   │       ├── axios.ts               # Axios 인터셉터 (토큰 자동 갱신)
+│   │       ├── generateSystemPrompt.ts # 선호 설정 → 시스템 프롬프트 생성
 │   │       ├── queryClient.ts         # React Query 설정
 │   │       └── utils.ts               # cn() 등 유틸
 │   ├── docker/
@@ -293,10 +295,17 @@ class AuditMixin:
 - **저장 구조**: `{UPLOAD_DIR}/{user_email}/{uuid_hex}{ext}`
 
 ### 11. Agent 생성 위자드
-- 5단계 위자드: 기본정보 → 파일등록 → Tool선택 → 모델선택 → 테스트
-- 프로그레스바: `grid grid-cols-5` 균등 배분
+- 6단계 위자드: 선호설정 → 기본정보 → 파일등록 → Tool선택 → 모델선택 → 테스트
+- 프로그레스바: `grid grid-cols-6` 균등 배분
+- **선호 설정 단계** (Step 1): 목적(5종), 응답 형식(4종), 응답 톤(4종) 카드 선택
+  - 3개 모두 선택해야 다음 단계 진행 가능
+  - `custom` 선택 시 텍스트 입력 필드 노출
+  - 선호 데이터는 Agent `config.preferences`에 JSONB로 저장 (DB 스키마 변경 없음)
+  - `generateSystemPrompt(preferences)` 결과가 system_prompt 앞에 prepend
+- 기본 정보 단계 (Step 2): 선호 요약 카드 표시, 템플릿/이름/설명/시스템 프롬프트
 - 템플릿 선택 시 시스템 프롬프트 자동 입력 (`system_prompt_template` → `system_prompt` 필드에 반영)
 - 템플릿 미선택 시 기본 프롬프트 비어있음 (직접 입력 가능)
+- **백엔드 반영**: ReActAgent가 `config.preferences`를 읽어 IntentClassifier 가중치 + LLM 메시지에 선호 지시문 삽입
 
 ### 12. Docker 개발환경 (기본 구동 방식)
 - **기본 사용**: `docker-compose -f docker-compose.dev.yml up -d --build`
