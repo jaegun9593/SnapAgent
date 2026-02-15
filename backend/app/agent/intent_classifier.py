@@ -40,6 +40,24 @@ class IntentClassifier:
         "what is", "who is", "how to",
     ]
 
+    # Keywords that suggest academic/research intent
+    ACADEMIC_KEYWORDS = [
+        "논문", "연구", "학술", "arxiv", "paper", "research",
+        "journal", "학회", "학자", "인용",
+    ]
+
+    # Keywords that suggest code/calculation intent
+    CODE_KEYWORDS = [
+        "코드", "프로그래밍", "계산", "수식", "파이썬", "python",
+        "calculate", "compute", "code", "실행", "연산",
+    ]
+
+    # Keywords that suggest web scraping intent
+    SCRAPER_KEYWORDS = [
+        "페이지", "사이트", "URL", "링크", "스크래핑",
+        "추출", "scrape", "crawl", "크롤링",
+    ]
+
     # Preference-based score weights for task_purpose
     PURPOSE_WEIGHTS: Dict[str, Dict[str, int]] = {
         "research": {"web_search": 2},
@@ -69,6 +87,19 @@ class IntentClassifier:
 
         rag_score = sum(1 for kw in self.RAG_KEYWORDS if kw in query_lower)
         web_score = sum(1 for kw in self.WEB_KEYWORDS if kw in query_lower)
+
+        # Academic keywords boost web_search (arxiv, wikipedia are web_search intent)
+        academic_score = sum(1 for kw in self.ACADEMIC_KEYWORDS if kw in query_lower)
+        web_score += academic_score
+
+        # Scraper keywords also boost web_search intent
+        scraper_score = sum(1 for kw in self.SCRAPER_KEYWORDS if kw in query_lower)
+        web_score += scraper_score
+
+        # Code/calculation keywords: these tools run under general_chat,
+        # but we still want to trigger tool execution, so give a small web boost
+        # to avoid falling into pure general_chat (which skips tools)
+        code_score = sum(1 for kw in self.CODE_KEYWORDS if kw in query_lower)
 
         # Apply preference-based weights
         if preferences:
@@ -103,6 +134,14 @@ class IntentClassifier:
                 intent_type="web_search",
                 confidence=min(0.5 + web_score * 0.1, 0.95),
                 reasoning=f"Query contains {web_score} web search indicators",
+            )
+        elif code_score > 0:
+            # Code/calculation queries: use general_chat intent but tools will
+            # still fire because _should_use_tool handles code tools specially
+            return IntentResult(
+                intent_type="general_chat",
+                confidence=0.7,
+                reasoning=f"Query contains {code_score} code/calculation indicators",
             )
         else:
             return IntentResult(

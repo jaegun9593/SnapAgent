@@ -51,18 +51,31 @@ class ToolExecutor:
             Dict with tool_type, output, and metadata
         """
         try:
+            # RAG tool needs special DB/Agent/User context
             if tool.tool_type == "rag":
                 return await self._execute_rag(query, tool.tool_config)
-            elif tool.tool_type == "web_search":
-                return await self._execute_web_search(query, tool.tool_config)
-            elif tool.tool_type == "custom_api":
-                return await self._execute_custom_api(query, tool.tool_config)
-            else:
+
+            # All other tools: look up via registry
+            from app.agent.tools.registry import get_tool_class
+
+            tool_cls = get_tool_class(tool.tool_type)
+            if tool_cls is None:
                 return {
                     "tool_type": tool.tool_type,
                     "output": f"Unknown tool type: {tool.tool_type}",
                     "success": False,
                 }
+
+            tool_instance = tool_cls()
+            result = await tool_instance.execute(query, config=tool.tool_config)
+
+            return {
+                "tool_type": tool.tool_type,
+                "output": result.get("content", ""),
+                "success": True,
+                **{k: v for k, v in result.items() if k != "content"},
+            }
+
         except Exception as e:
             logger.error(f"Tool execution error ({tool.tool_type}): {e}")
             return {
@@ -84,35 +97,5 @@ class ToolExecutor:
             "tool_type": "rag",
             "output": results.get("content", ""),
             "chunks": results.get("chunks", []),
-            "success": True,
-        }
-
-    async def _execute_web_search(
-        self, query: str, config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Execute web search using DuckDuckGo."""
-        from app.agent.tools.web_search_tool import WebSearchTool
-
-        web_tool = WebSearchTool()
-        results = await web_tool.search(query, config=config)
-        return {
-            "tool_type": "web_search",
-            "output": results.get("content", ""),
-            "results": results.get("results", []),
-            "success": True,
-        }
-
-    async def _execute_custom_api(
-        self, query: str, config: Optional[Dict[str, Any]] = None
-    ) -> Dict[str, Any]:
-        """Execute custom API call."""
-        from app.agent.tools.custom_api_tool import CustomApiTool
-
-        api_tool = CustomApiTool()
-        results = await api_tool.call(query, config=config)
-        return {
-            "tool_type": "custom_api",
-            "output": results.get("content", ""),
-            "response": results.get("response", {}),
             "success": True,
         }

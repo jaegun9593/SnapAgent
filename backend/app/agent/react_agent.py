@@ -198,46 +198,45 @@ class ReActAgent:
                 }
 
                 # Step 2: Tool Execution (if needed)
-                if intent.intent_type != "general_chat":
-                    tools = await self.tool_executor.get_enabled_tools()
-                    for tool in tools:
-                        if self._should_use_tool(intent.intent_type, tool):
-                            # --- before_tool ---
-                            ctx = await self.mw_chain.run_before_tool(
-                                tool.tool_type, query, ctx
-                            )
-                            if ctx.aborted:
-                                yield "error", {"error": ctx.abort_reason}
-                                await self.mw_chain.run_after_run(ctx)
-                                return
+                tools = await self.tool_executor.get_enabled_tools()
+                for tool in tools:
+                    if self._should_use_tool(intent.intent_type, tool):
+                        # --- before_tool ---
+                        ctx = await self.mw_chain.run_before_tool(
+                            tool.tool_type, query, ctx
+                        )
+                        if ctx.aborted:
+                            yield "error", {"error": ctx.abort_reason}
+                            await self.mw_chain.run_after_run(ctx)
+                            return
 
-                            tool_start_time = time.time()
-                            yield "tool_start", {
-                                "tool_type": tool.tool_type,
-                                "tool_name": tool.tool_type,
-                                "input": {"query": query},
-                                "iteration": iteration,
-                            }
+                        tool_start_time = time.time()
+                        yield "tool_start", {
+                            "tool_type": tool.tool_type,
+                            "tool_name": tool.tool_type,
+                            "input": {"query": query},
+                            "iteration": iteration,
+                        }
 
-                            tool_output = await self.tool_executor.execute(
-                                tool, query, context=tool_results
-                            )
-                            duration_ms = int((time.time() - tool_start_time) * 1000)
+                        tool_output = await self.tool_executor.execute(
+                            tool, query, context=tool_results
+                        )
+                        duration_ms = int((time.time() - tool_start_time) * 1000)
 
-                            tool_results.append(tool_output)
+                        tool_results.append(tool_output)
 
-                            # --- after_tool ---
-                            ctx = await self.mw_chain.run_after_tool(
-                                tool.tool_type, tool_output, ctx
-                            )
+                        # --- after_tool ---
+                        ctx = await self.mw_chain.run_after_tool(
+                            tool.tool_type, tool_output, ctx
+                        )
 
-                            yield "tool_result", {
-                                "tool_type": tool.tool_type,
-                                "tool_name": tool.tool_type,
-                                "output": tool_output,
-                                "duration_ms": duration_ms,
-                                "iteration": iteration,
-                            }
+                        yield "tool_result", {
+                            "tool_type": tool.tool_type,
+                            "tool_name": tool.tool_type,
+                            "output": tool_output,
+                            "duration_ms": duration_ms,
+                            "iteration": iteration,
+                        }
 
                 # Step 3: LLM Inference with streaming
                 messages = self._build_messages(query, history, tool_results)
@@ -303,12 +302,25 @@ class ReActAgent:
 
     def _should_use_tool(self, intent_type: str, tool: AgentTool) -> bool:
         """Determine if a tool should be used based on intent."""
-        mapping = {
-            "rag_search": ["rag"],
-            "web_search": ["web_search"],
-            "hybrid": ["rag", "web_search"],
-        }
-        allowed = mapping.get(intent_type, [])
+        from app.agent.tools.registry import TOOL_INTENT_MAP
+
+        # Build reverse mapping: intent → list of tool_types
+        intent_to_tools: Dict[str, List[str]] = {}
+        for t_type, i_type in TOOL_INTENT_MAP.items():
+            intent_to_tools.setdefault(i_type, []).append(t_type)
+
+        # "hybrid" means use both rag_search and web_search tool groups
+        if intent_type == "hybrid":
+            allowed = intent_to_tools.get("rag_search", []) + intent_to_tools.get("web_search", [])
+        else:
+            allowed = intent_to_tools.get(intent_type, [])
+
+        # calculator and python_repl always execute when enabled
+        # (they are mapped to general_chat, so they'd be skipped otherwise)
+        always_execute = {"calculator", "python_repl"}
+        if tool.tool_type in always_execute:
+            return True
+
         return tool.tool_type in allowed
 
     def _build_messages(

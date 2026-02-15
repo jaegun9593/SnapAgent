@@ -11,9 +11,10 @@ from pydantic import BaseModel, Field
 class AgentToolConfig(BaseModel):
     """Tool configuration within an agent."""
 
-    tool_type: Literal["rag", "web_search", "custom_api"] = Field(
-        ..., description="Type of tool"
-    )
+    tool_type: Literal[
+        "rag", "web_search", "tavily_search", "wikipedia", "arxiv",
+        "calculator", "python_repl", "web_scraper", "custom_api"
+    ] = Field(..., description="Type of tool")
     tool_config: Optional[Dict[str, Any]] = Field(None, description="Tool-specific configuration")
     is_enabled: bool = Field(True, description="Whether the tool is enabled")
     sort_order: int = Field(0, description="Sort order")

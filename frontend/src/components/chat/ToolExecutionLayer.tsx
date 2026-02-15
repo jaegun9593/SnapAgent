@@ -8,6 +8,12 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  Sparkles,
+  BookOpen,
+  GraduationCap,
+  Calculator,
+  Terminal,
+  FileDown,
 } from 'lucide-react';
 import {
   Collapsible,
@@ -27,12 +33,24 @@ interface ToolExecutionLayerProps {
 const toolIcons: Record<string, React.ReactNode> = {
   rag: <Search className="h-3.5 w-3.5" />,
   web_search: <Globe className="h-3.5 w-3.5" />,
+  tavily_search: <Sparkles className="h-3.5 w-3.5" />,
+  wikipedia: <BookOpen className="h-3.5 w-3.5" />,
+  arxiv: <GraduationCap className="h-3.5 w-3.5" />,
+  calculator: <Calculator className="h-3.5 w-3.5" />,
+  python_repl: <Terminal className="h-3.5 w-3.5" />,
+  web_scraper: <FileDown className="h-3.5 w-3.5" />,
   custom_api: <Plug className="h-3.5 w-3.5" />,
 };
 
 const toolLabels: Record<string, string> = {
   rag: 'RAG 검색',
   web_search: '웹 검색',
+  tavily_search: 'Tavily 검색',
+  wikipedia: 'Wikipedia',
+  arxiv: 'ArXiv 논문',
+  calculator: '계산기',
+  python_repl: 'Python 실행',
+  web_scraper: '웹 스크래핑',
   custom_api: 'API 호출',
 };
 

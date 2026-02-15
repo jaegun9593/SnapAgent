@@ -154,6 +154,7 @@ export function AgentCreateWizard({ onComplete, onCancel }: AgentCreateWizardPro
         <ToolSelectStep
           tools={tools}
           onChange={setTools}
+          taskPurpose={preferences.task_purpose}
         />
       )}
       {currentStep === 4 && (

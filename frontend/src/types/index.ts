@@ -46,7 +46,9 @@ export interface AgentPreferences {
 
 // Agent types
 export type AgentStatus = 'draft' | 'configured' | 'processing' | 'ready' | 'error';
-export type ToolType = 'rag' | 'web_search' | 'custom_api';
+export type ToolType =
+  | 'rag' | 'web_search' | 'tavily_search' | 'wikipedia' | 'arxiv'
+  | 'calculator' | 'python_repl' | 'web_scraper' | 'custom_api';
 
 export interface AgentToolConfig {
   tool_type: ToolType;

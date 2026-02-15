@@ -211,6 +211,25 @@ export function ChatPanel({ agentId }: ChatPanelProps) {
 
       {/* Right: Chat area */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Chat header */}
+        {activeSessionId && (
+          <div className="flex items-center justify-between px-4 py-2 border-b bg-background/80">
+            <span className="text-sm font-medium truncate">
+              {sessions.find((s) => s.id === activeSessionId)?.title || '새 대화'}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 gap-1.5 text-muted-foreground hover:text-destructive"
+              onClick={() => handleDeleteSession(activeSessionId)}
+              disabled={isStreaming}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              <span className="text-xs">대화 삭제</span>
+            </Button>
+          </div>
+        )}
+
         {/* Messages */}
         <ScrollArea className="flex-1 px-4 py-4">
           <div className="space-y-4 max-w-3xl mx-auto">
